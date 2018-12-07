@@ -20,11 +20,13 @@ endif
 
 #check for CPU type
 ifeq ($(CPU),psur5)
-CFLAGS := -mcpu=cortex-r5 -mthumb -mthumb-interwork -mfloat-abi=softfp -mfpu=neon -g3 -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -MP -MMD -std=gnu11 -fPIC
+CFLAGS := -mcpu=cortex-r5  -g3 -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -MP -MMD -std=gnu11
 CC := arm-none-eabi-gcc
 AR := arm-none-eabi-ar
-else
-
+else ifeq ($(CPU),cortex-m7)
+CFLAGS := -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -g3 -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -MP -MMD -std=gnu11
+CC := arm-none-eabi-gcc
+AR := arm-none-eabi-ar
 endif
 
 OBJECTS := $(LWIPNOAPPSFILES:$(LWIPDIR)/%.c=$(OBJDIR)/%.o)
@@ -32,7 +34,7 @@ OBJECTS := $(LWIPNOAPPSFILES:$(LWIPDIR)/%.c=$(OBJDIR)/%.o)
 $(OBJECTS): $(OBJDIR)/%.o : $(LWIPDIR)/%.c
 	@echo 'Building file: $<'
 	@mkdir -p $(@D)
-	@$(CC) -c $(CFLAGS) $(INC) -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o $@ $< >/dev/null
+	@$(CC) -c $(CFLAGS) $(INC) -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o $@ $< >/dev/null
 
 $(LIB) : $(OBJECTS)
 	@echo 'Linking: $@'
@@ -44,3 +46,8 @@ all: $(LIB)
 clean :
 	rm -rf $(OBJDIR)
 	rm -rf $(LIBDIR)
+
+help:
+	@echo 'Default Arguments: CPU=psur5 OS=ucos-ii'
+	@echo 'CPU={psur5,cortex-m7}'
+	@echo 'OS={ucos-ii}'
