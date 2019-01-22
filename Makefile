@@ -14,6 +14,8 @@ INC = -I$(LWIPDIR)/include -I $(LWIPOPTSDIR)
 #check for OS type
 ifeq ($(OS),ucos-ii)
 INC += -I ./ports/os/ucos_ii/
+else ifeq ($(OS),unix)
+INC += -I ./ports/os/unix/
 else
 INC += -I ./ports/os/FreeRTOS/
 endif
@@ -50,4 +52,4 @@ clean :
 help:
 	@echo 'Default Arguments: CPU=psur5 OS=ucos-ii'
 	@echo 'CPU={psur5,cortex-m7}'
-	@echo 'OS={ucos-ii}'
+	@echo 'OS={ucos-ii,unix}'
