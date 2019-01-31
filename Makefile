@@ -29,6 +29,10 @@ else ifeq ($(CPU),cortex-m7)
 CFLAGS := -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -g3 -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -MP -MMD -std=gnu11
 CC := arm-none-eabi-gcc
 AR := arm-none-eabi-ar
+else
+CFLAGS := -g3 -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -MP -MMD -std=gnu11
+CC := gcc
+AR := gcc-ar
 endif
 
 OBJECTS := $(LWIPNOAPPSFILES:$(LWIPDIR)/%.c=$(OBJDIR)/%.o)
@@ -52,4 +56,4 @@ clean :
 help:
 	@echo 'Default Arguments: CPU=psur5 OS=ucos-ii'
 	@echo 'CPU={psur5,cortex-m7}'
-	@echo 'OS={ucos-ii,unix}'
+	@echo 'OS={ucos-ii,unix,freertos}'
