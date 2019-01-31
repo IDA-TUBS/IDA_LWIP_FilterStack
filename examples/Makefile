@@ -41,13 +41,13 @@ INC= -I ./ \
 	-I $(LWIPDIR)/core/ \
 	-I $(PORTDIR) \
 
-$(TARGET): $(OBJ) $(LWIPLIBCOMMON)
+$(TARGET): $(OBJ) 
 	@echo 'Linking obj: $@'
 	@$(CC) $(CFLAGS) -o $(TARGET) $(OBJ) $(LWIPLIBCOMMON) $(LDFLAGS) $(INC)
 
 all: $(TARGET)
 	
-$(OBJDIR)/test.o: $(LWIPLIBCOMMON)
+$(OBJDIR)/test.o:
 	$(CC) $(CFLAGS) -c $(SRCDIR)/test.c $(INC) -o $@
 $(OBJDIR)/default_netif.o:
 	$(CC) $(CFLAGS) -c $(SRCDIR)/default_netif.c $(INC)	-o $@
