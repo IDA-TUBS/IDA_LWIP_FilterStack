@@ -1,2 +1,4 @@
 lib/
 obj/
+examples/example
+*.o
