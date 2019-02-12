@@ -60,6 +60,8 @@
 #include "netif/ethernet.h"
 #include "default_netif.h"
 
+#include "udpecho.h"
+
 #if NO_SYS
 /* ... then we need information about the timer intervals: */
 #include "lwip/ip4_frag.h"
@@ -178,6 +180,9 @@ main_loop(void)
   sys_sem_wait(&init_sem);
   sys_sem_free(&init_sem);
 #endif /* NO_SYS */
+
+
+  udpecho_init();
 
   /* MAIN LOOP for driver update (and timers if NO_SYS) */
   while (!LWIP_EXAMPLE_APP_ABORT()) {

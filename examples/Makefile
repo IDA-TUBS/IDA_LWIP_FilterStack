@@ -11,6 +11,7 @@ PORTDIR = ../ports/os/unix
 SOURCES = \
 	netif/tapif.c \
 	test.c \
+	udpecho.c \
 	default_netif.c \
 	$(PORTDIR)/perf.c \
 	$(PORTDIR)/sys_arch.c 
@@ -19,6 +20,7 @@ OBJ = $(OBJDIR)/perf.o \
 	$(OBJDIR)/sys_arch.o \
 	$(OBJDIR)/tapif.o \
 	$(OBJDIR)/test.o \
+	$(OBJDIR)/udpecho.o \
 	$(OBJDIR)/default_netif.o	
 	
 TARGET = test	
@@ -57,7 +59,8 @@ $(OBJDIR)/perf.o:
 	$(CC) $(CFLAGS) -c $(PORTDIR)/perf.c $(INC)	-o $@
 $(OBJDIR)/sys_arch.o:
 	$(CC) $(CFLAGS) -c $(PORTDIR)/sys_arch.c $(INC) -o $@
-
+$(OBJDIR)/udpecho.o:
+	$(CC) $(CFLAGS) -c $(SRCDIR)/udpecho.c $(INC) -o $@
 
 clean:
 	rm -rf $(OBJ) test
