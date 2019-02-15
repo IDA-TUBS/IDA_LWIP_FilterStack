@@ -62,58 +62,14 @@
 
 #include "udpecho.h"
 
-#if NO_SYS
-/* ... then we need information about the timer intervals: */
-#include "lwip/ip4_frag.h"
-#include "lwip/igmp.h"
-#endif /* NO_SYS */
-
-//--cut ppp--
-
 /* include the port-dependent configuration */
 #include "lwipcfg.h"
-
-#ifndef LWIP_EXAMPLE_APP_ABORT
-#define LWIP_EXAMPLE_APP_ABORT() 0
-#endif
-
-/** Define this to 1 to enable a port-specific ethernet interface as default interface. */
-#ifndef USE_DEFAULT_ETH_NETIF
-#define USE_DEFAULT_ETH_NETIF 1
-#endif
-
-//--cut ppp--
-
-/** Define this to 1 or 2 to support 1 or 2 SLIP interfaces. */
-//--cut slipif--
-
-/** Use an ethernet adapter? Default to enabled if port-specific ethernet netif or PPPoE are used. */
-#ifndef USE_ETHERNET
-#define USE_ETHERNET  (USE_DEFAULT_ETH_NETIF || PPPOE_SUPPORT)
-#endif
-
-/** Use an ethernet adapter for TCP/IP? By default only if port-specific ethernet netif is used. */
-#ifndef USE_ETHERNET_TCPIP
-#define USE_ETHERNET_TCPIP  (USE_DEFAULT_ETH_NETIF)
-#endif
-
-//--cut slipif--
-
-#ifndef USE_DHCP
-#define USE_DHCP    LWIP_DHCP
-#endif
-#ifndef USE_AUTOIP
-#define USE_AUTOIP  LWIP_AUTOIP
-#endif
-
 
 /* This function initializes all network interfaces */
 static void
 test_netif_init(void)
 {
-
   ip4_addr_t ipaddr, netmask, gw;
-  err_t err;
 
   ip4_addr_set_zero(&gw);
   ip4_addr_set_zero(&ipaddr);
@@ -125,7 +81,6 @@ test_netif_init(void)
 
   init_default_netif(&ipaddr, &netmask, &gw);
   netif_set_up(netif_default);
-
 }
 
 /* This function initializes this lwIP test. When NO_SYS=1, this is done in
@@ -134,23 +89,16 @@ test_netif_init(void)
 static void
 test_init(void * arg)
 { /* remove compiler warning */
-#if NO_SYS
-  LWIP_UNUSED_ARG(arg);
-#else /* NO_SYS */
   sys_sem_t *init_sem;
   LWIP_ASSERT("arg != NULL", arg != NULL);
   init_sem = (sys_sem_t*)arg;
-#endif /* NO_SYS */
-
   /* init randomizer again (seed per thread) */
   srand((unsigned int)time(0));
 
   /* init network interfaces */
   test_netif_init();
 
-#if !NO_SYS
   sys_sem_signal(init_sem);
-#endif /* !NO_SYS */
 }
 
 /* This is somewhat different to other ports: we have a main loop here:
@@ -160,17 +108,10 @@ test_init(void * arg)
 static void
 main_loop(void)
 {
-#if !NO_SYS
   err_t err;
   sys_sem_t init_sem;
-#endif /* NO_SYS */
-//--cut ppp--
 
   /* initialize lwIP stack, network interfaces and applications */
-#if NO_SYS
-  lwip_init();
-  test_init(NULL);
-#else /* NO_SYS */
   err = sys_sem_new(&init_sem, 0);
   LWIP_ASSERT("failed to create init_sem", err == ERR_OK);
   LWIP_UNUSED_ARG(err);
@@ -179,27 +120,18 @@ main_loop(void)
    * calling update_adapter()! */
   sys_sem_wait(&init_sem);
   sys_sem_free(&init_sem);
-#endif /* NO_SYS */
-
 
   udpecho_init();
 
   /* MAIN LOOP for driver update (and timers if NO_SYS) */
   while (!LWIP_EXAMPLE_APP_ABORT()) {
-#if NO_SYS
-    /* handle timers (already done in tcpip.c when NO_SYS=0) */
-    sys_check_timeouts();
-#endif /* NO_SYS */
 
-#if USE_ETHERNET
+  /* MAIN LOOP for driver update (and timers if NO_SYS) */
+  while (1) {
     default_netif_poll();
-#endif /* USE_ETHERNET */
-
   }
 
-#if USE_ETHERNET
   default_netif_shutdown();
-#endif /* USE_ETHERNET */
 }
 
 int main(void)
