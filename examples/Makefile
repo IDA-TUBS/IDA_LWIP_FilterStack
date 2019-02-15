@@ -9,6 +9,7 @@ PORTDIR = ../ports/os/unix
 SOURCES := \
 	$(SRCDIR)/netif/tapif.c \
 	$(SRCDIR)/test.c \
+	$(SRCDIR)/udpecho.c \
 	$(SRCDIR)/default_netif.c \
 	$(PORTDIR)/perf.c \
 	$(PORTDIR)/sys_arch.c 

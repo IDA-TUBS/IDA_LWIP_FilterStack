@@ -57,7 +57,7 @@ udpecho_thread(void *arg)
   netconn_bind(conn, IP_ADDR_ANY, 7);
 #endif /* LWIP_IPV6 */
   LWIP_ERROR("udpecho: invalid conn", (conn != NULL), return;);
-
+  printf("UDP ECHO SERVER STARTED\n");
   while (1) {
     err = netconn_recv(conn, &buf);
     if (err == ERR_OK) {

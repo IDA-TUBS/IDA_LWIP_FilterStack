@@ -124,9 +124,6 @@ main_loop(void)
   udpecho_init();
 
   /* MAIN LOOP for driver update (and timers if NO_SYS) */
-  while (!LWIP_EXAMPLE_APP_ABORT()) {
-
-  /* MAIN LOOP for driver update (and timers if NO_SYS) */
   while (1) {
     default_netif_poll();
   }
