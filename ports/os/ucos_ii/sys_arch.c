@@ -270,7 +270,7 @@ err_t sys_mbox_new(struct sys_mbox **mbox, int size)
 	struct sys_mbox *messageBox;
 	CPU_SR cpu_sr;
 
-	if(size != LWIP_SYS_ARCH_MBOX_SIZE)
+	if(size > LWIP_SYS_ARCH_MBOX_SIZE)
 		return ERR_MEM;
 
 	if(sys_arch_mbox_list == NULL){
