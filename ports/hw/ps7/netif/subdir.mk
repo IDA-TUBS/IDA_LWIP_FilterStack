@@ -1,0 +1,9 @@
+SRC += $(LWIP_HW_PS7_SRC_DIR)/xtopology_g.c
+SRC += $(LWIP_HW_PS7_SRC_DIR)/../../psur5/netif/xemacpsif.c
+SRC += $(LWIP_HW_PS7_SRC_DIR)/../../psur5/netif/xemacpsif_dma.c
+SRC += $(LWIP_HW_PS7_SRC_DIR)/../../psur5/netif/xemacpsif_hw.c
+SRC += $(LWIP_HW_PS7_SRC_DIR)/../../psur5/netif/xemacpsif_physpeed.c
+SRC += $(LWIP_HW_PS7_SRC_DIR)/../../psur5/netif/xadapter.c
+SRC += $(LWIP_HW_PS7_SRC_DIR)/../../psur5/netif/xpqueue.c
+SRC += $(LWIP_HW_PS7_SRC_DIR)/../../psur5/netif/xemacpsif_ieee1588.c
+SRC += $(LWIP_HW_PS7_SRC_DIR)/xemacps_g.c

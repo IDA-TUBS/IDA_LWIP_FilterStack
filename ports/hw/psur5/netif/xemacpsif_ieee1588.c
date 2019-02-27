@@ -17,11 +17,19 @@
 #include "netif/xemacpsif.h"
 #include "netif/xadapter.h"
 
+#if XPAR_EMACPS_TSU_ENABLE
 /*
  ************************************************************************************************
  *                                          Defines
  ************************************************************************************************
  */
+#if defined (ARMR5)
+#define XPAR_XEMACPS_BASEADDR XPAR_PSU_ETHERNET_3_BASEADDR
+#define ENET_TSU_CLK_FREQ_HZ XPAR_PSU_ETHERNET_3_ENET_TSU_CLK_FREQ_HZ
+#else
+#define XPAR_XEMACPS_BASEADDR XPAR_XEMACPS_0_BASEADDR
+#define ENET_TSU_CLK_FREQ_HZ XPAR_PS7_ETHERNET_0_ENET_TSU_CLK_FREQ_HZ
+#endif
 
 /*
  ************************************************************************************************
@@ -97,12 +105,12 @@ void XEmacPs_InitTsu(void) {
 	u32 temp;
 
 	NSIncrementVal = XEmacPs_TsuCalcClk(
-	XPAR_PSU_ETHERNET_3_ENET_TSU_CLK_FREQ_HZ);
+			ENET_TSU_CLK_FREQ_HZ);
 
 
-	temp = (NS_PER_SEC - NSIncrementVal * XPAR_PSU_ETHERNET_3_ENET_TSU_CLK_FREQ_HZ);
+	temp = (NS_PER_SEC - NSIncrementVal * ENET_TSU_CLK_FREQ_HZ);
 	temp *= (1 << XEMACPS_PTP_TSU_NS_INCR_SIZE);
-	SubNSIncrementVal = temp / XPAR_PSU_ETHERNET_3_ENET_TSU_CLK_FREQ_HZ;
+	SubNSIncrementVal = temp / ENET_TSU_CLK_FREQ_HZ;
 
 //	u32 *Addr = (u32 *) 0xFF0E01DC;
 //	*Addr = NSIncrementVal;
@@ -176,8 +184,8 @@ void XEmacPs_GetRxTimestamp(void) {
 	u8 head;
 	OS_CPU_SR cpu_sr;
 
-	s_val = XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_RX_SEC_OFFSET);
-	ns_val = XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_RX_NSEC_OFFSET);
+	s_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_SEC_OFFSET);
+	ns_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_NSEC_OFFSET);
 
 
 	OS_ENTER_CRITICAL();
@@ -200,8 +208,8 @@ void XEmacPs_GetTxTimestamp(void) {
 
 	OS_CPU_SR cpu_sr;
 
-	s_val = XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_TX_SEC_OFFSET);
-	ns_val = XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_TX_NSEC_OFFSET);
+	s_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_SEC_OFFSET);
+	ns_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_NSEC_OFFSET);
 
 	OS_ENTER_CRITICAL();
 	head = Ptp_Tx_Timestamp.head;
@@ -224,15 +232,15 @@ void XEmacPs_GetTxTimestamp(void) {
  *******************************************************************************/
 void ETH_PTPTime_GetTime(struct ptptime_t* timestamp) {
 
-	timestamp->tv_sec = XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR,
+	timestamp->tv_sec = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR,
 				XEMACPS_PTP_TSU_SEC_REG_OFFSET);
 
-	timestamp->tv_nsec = XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR,
+	timestamp->tv_nsec = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR,
 			XEMACPS_PTP_TSU_NSEC_REG_OFFSET);
 
-	if (XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR,
+	if (XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR,
 			XEMACPS_PTP_TSU_SEC_REG_OFFSET) > timestamp->tv_sec) {
-		timestamp->tv_sec = XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR,
+		timestamp->tv_sec = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR,
 						XEMACPS_PTP_TSU_SEC_REG_OFFSET);
 	}
 
@@ -294,10 +302,10 @@ void ETH_PTPTime_SetTime(struct ptptime_t * timestamp) {
 void ETH_SetPTPTimeStampUpdate(uint32_t Sign, uint32_t SecondValue,
 		uint32_t NanoSecondValue) {
 
-	XEmacPs_WriteReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_SEC_REG_OFFSET,
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SEC_REG_OFFSET,
 			SecondValue);
 
-	XEmacPs_WriteReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_NSEC_REG_OFFSET,
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_NSEC_REG_OFFSET,
 			NanoSecondValue);
 }
 
@@ -357,7 +365,7 @@ void ETH_PTPTime_UpdateOffset(struct ptptime_t * timeoffset) {
  */
 void ETH_SetPTPTimeStampAddend(uint32_t Value) {
 	/* Set the PTP Time Stamp Addend Register */
-	XEmacPs_WriteReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, Value);
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, Value);
 }
 
 
@@ -381,7 +389,7 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 	u32 ppb_pot = 1000000000;
 	u32 adjsub;
 	BOOLEAN neg_adj;
-	u32 clk_rate = XPAR_PSU_ETHERNET_3_ENET_TSU_CLK_FREQ_HZ;
+	u32 clk_rate = ENET_TSU_CLK_FREQ_HZ;
 	u32 diffsub;
 	u32 subnsreg;
 
@@ -434,8 +442,8 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 			| ((addendsub & GEM_SUBNSINCH_MASK) >> GEM_SUBNSINCH_SHFT);
 
 
-//	XEmacPs_WriteReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET, subnsreg);
-//	XEmacPs_WriteReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, addend);
+//	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET, subnsreg);
+//	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, addend);
 
 
 	/* Reprogram the Time stamp addend register with new Rate value and set ETH_TPTSCR */
@@ -456,8 +464,8 @@ void XEmacPs_WriteTsuIncr(u32 ns, u32 subns)
 	 * and the write operation will cause the value written to the tsu_timer_incr_sub_ns
 	 * register to take effect.
 	 */
-//	XEmacPs_WriteReg((u32 )XPAR_XEMACPS_0_BASEADDR, XEMACPS_SUB_NS_INCR_OFFSET, sub_ns_reg);
-//	XEmacPs_WriteReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, ns_reg);
+//	XEmacPs_WriteReg((u32 )XPAR_XEMACPS_BASEADDR, XEMACPS_SUB_NS_INCR_OFFSET, sub_ns_reg);
+//	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, ns_reg);
 
 	/*
 	 * Write NS Increment Value
@@ -481,8 +489,8 @@ XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void)
 	XEmacPs_Tsu_incr incr;
 
 
-	sub_ns_reg = XEmacPs_ReadReg((u32 )XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_NS_INCR_OFFSET);
-	incr.nanoseconds = XEmacPs_ReadReg(XPAR_XEMACPS_0_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET);
+	sub_ns_reg = XEmacPs_ReadReg((u32 )XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_NS_INCR_OFFSET);
+	incr.nanoseconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET);
 
 	/* RegBit[15:0] = Subns[23:8]; RegBit[31:24] = Subns[7:0] */
 	sub_ns_reg = ((sub_ns_reg & ((1 << XEMACPS_PTP_TSU_NS_INCR_MSB_SIZE) - 1)) << XEMACPS_PTP_TSU_NS_INCR_LSB_SIZE)
@@ -547,3 +555,4 @@ void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
 
 
 }
+#endif
