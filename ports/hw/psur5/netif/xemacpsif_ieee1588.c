@@ -102,7 +102,7 @@ void XEmacPs_InitTsu(void) {
 
 	u32 NSIncrementVal, SubNSIncrementVal;
 	u32 Freq;
-	u32 temp;
+	u64 temp;
 
 	NSIncrementVal = XEmacPs_TsuCalcClk(
 			ENET_TSU_CLK_FREQ_HZ);
@@ -111,12 +111,6 @@ void XEmacPs_InitTsu(void) {
 	temp = (NS_PER_SEC - NSIncrementVal * ENET_TSU_CLK_FREQ_HZ);
 	temp *= (1 << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE);
 	SubNSIncrementVal = temp / ENET_TSU_CLK_FREQ_HZ;
-
-//	u32 *Addr = (u32 *) 0xFF0E01DC;
-//	*Addr = NSIncrementVal;
-//
-//	Addr = (u32 *) 0xFF0E01BC;
-//	*Addr = SubNSIncrementVal;
 
 	XEmacPs_WriteTsuIncr(NSIncrementVal, SubNSIncrementVal);
 
@@ -247,9 +241,6 @@ void ETH_PTPTime_GetTime(struct ptptime_t* timestamp) {
 
 }
 
-//u32_t timeSec[10];
-//u32_t timeNsec[10];
-//u8 timeIndex = 0;
 /*******************************************************************************
  * Function Name  : ETH_PTPTimeStampSetTime
  * Description    : Initialize time base
@@ -263,14 +254,6 @@ void ETH_PTPTime_SetTime(struct ptptime_t * timestamp) {
 	uint32_t NanoSecondValue;
 	uint32_t SubSecondValue;
 	struct ptptime_t *currentTime;
-
-//	if (timeIndex < 10) {
-//		timeSec[timeIndex] = timestamp->tv_sec;
-//		timeNsec[timeIndex] = timestamp->tv_nsec;
-//		timeIndex++;
-//	} else
-//		asm volatile ("nop");
-
 
 	/* determine sign and correct Second and Nanosecond values */
 	if(timestamp->tv_sec < 0 || (timestamp->tv_sec == 0 && timestamp->tv_nsec < 0))
@@ -336,27 +319,9 @@ void ETH_PTPTime_UpdateOffset(struct ptptime_t * timeoffset) {
 		NanoSecondValue = timeoffset->tv_nsec;
 	}
 
-	/* TODO */
-	/* read old addend register value*/
-//	addend = ETH_GetPTPRegister(ETH_PTPTSAR_TSA); // richtiges Register?
 	/* Write the offset (positive or negative) in the Time stamp update high and low registers. */
 	ETH_SetPTPTimeStampUpdate(Sign, SecondValue, NanoSecondValue);
-
-	/* Write back old addend register value. */
-//	ETH_SetPTPTimeStampAddend(addend);
-	/* Enable TS Addend */
-//	ETH_EnablePTPTimeStampAddend();
 }
-
-///**
-// * @brief  Updated the PTP block for fine correction with the Time Stamp Addend register value.
-// * @param  None
-// * @retval None
-// */
-//void ETH_EnablePTPTimeStampAddend(void) {
-//	/* Enable the PTP block update with the Time Stamp Addend register value */
-////  ETH->PTPTSCR |= ETH_PTPTSCR_TSARU;
-//}
 
 /**
  * @brief  Sets the Time Stamp Addend value.
@@ -368,8 +333,6 @@ void ETH_SetPTPTimeStampAddend(uint32_t Value) {
 	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, Value);
 }
 
-
-
 /*******************************************************************************
  * Function Name  : ETH_PTPTimeStampAdjFreq
  * Description    : Updates time stamp addend register
@@ -377,32 +340,12 @@ void ETH_SetPTPTimeStampAddend(uint32_t Value) {
  * Output         : None
  * Return         : None
  *******************************************************************************/
-uint32_t addendArray[100];
-uint32_t subaddednArray[100];
-uint8_t addendIndex = 0;
 void ETH_PTPTime_AdjFreq(int32_t Adj) {
-
-	u32 addend = 0;
-	u32 addendsub = 0;;
-//	u32 temp = 0;
-//	u32 rem = 0;
 	XEmacPs_Tsu_incr incr;
-	u32 *incr_ns = 0;
-	u32 *incr_subns = 0;
-//	s32 ppb_pot = 1000000000;
-//	u32 adjsub = 0;
 	BOOLEAN neg_adj = 0;
-//	u32 clk_rate = ENET_TSU_CLK_FREQ_HZ;
-//	u32 diffsub = 0;
-	u32 subnsreg = 0;
 	u64 period, temp;
 
-	if (Adj != 0)
-		asm volatile ("nop");
-
-
 	s32 ppb = Adj;						// Part per Billion (ns) = adj
-	//* ppb_pot;
 
 	if (ppb < 0) {							// Check if error is positive or negative
 		neg_adj = TRUE;
@@ -424,46 +367,22 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 	incr.nanoseconds = (period >> XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) & ((1 << GEM_SUBNSINCH_SHFT) - 1);
 	incr.subnanoseconds = period & ((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) - 1);
 
-	addend = incr.nanoseconds;
-	subnsreg = ((incr.subnanoseconds  & GEM_SUBNSINCL_MASK) << GEM_SUBNSINCL_SHFT)
-			| ((incr.subnanoseconds  & GEM_SUBNSINCH_MASK) >> GEM_SUBNSINCH_SHFT);
-
-	addendArray[addendIndex] = addend;
-	subaddednArray[addendIndex] = incr.subnanoseconds;
-	addendIndex = (addendIndex + 1) % 100;
-
-	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET, subnsreg);
-	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, addend);
+	XEmacPs_WriteTsuIncr(incr.nanoseconds, incr.subnanoseconds);
 }
 
 
 void XEmacPs_WriteTsuIncr(u32 ns, u32 subns)
 {
 	u32 sub_ns_reg;
-	u32 ns_reg;
 
-	sub_ns_reg = XEMACPS_SHIFT__LEAST_SUB_NS(subns)
-			| (((subns & ~((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE) - 1)) >> XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE));
+	sub_ns_reg = ((subns  & GEM_SUBNSINCL_MASK) << GEM_SUBNSINCL_SHFT) | ((subns  & GEM_SUBNSINCH_MASK) >> GEM_SUBNSINCH_SHFT);
 
 	/* tsu_timer_incr register must be written after the tsu_timer_incr_sub_ns register
 	 * and the write operation will cause the value written to the tsu_timer_incr_sub_ns
 	 * register to take effect.
 	 */
-//	XEmacPs_WriteReg((u32 )XPAR_XEMACPS_BASEADDR, XEMACPS_SUB_NS_INCR_OFFSET, sub_ns_reg);
-//	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, ns_reg);
-
-	/*
-	 * Write NS Increment Value
-	 */
-	u32 *Addr = (u32 *) 0xFF0E01DC;
-	*Addr = ns;
-
-	/*
-	 * Write SubNS Increment Value
-	 */
-	Addr = (u32 *) 0xFF0E01BC;
-	*Addr = sub_ns_reg;
-
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET, sub_ns_reg);
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, ns);
 }
 
 
@@ -495,12 +414,6 @@ void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
 	u8 index;
 	OS_CPU_SR cpu_sr;
 
-	/* nach ptpd-Vorgabe wird hier der Timestamp geholt:
-	 * Timestamp sieht sehr groß aus, aber das System funktioniert und der Slave bleibt soaweit kalibriert
-	 */
-//	ETH_PTPTime_GetTime(&timestamp);
-
-
 	if(!receive){
 
 		sys_sem_wait(&sem_tx_ptp_available);
@@ -523,21 +436,5 @@ void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
 
 
 	}
-
-//	for (int i = 0; i < XEMACPS_PTP_TS_BUFF_SIZE; i++){
-//		if (receive){
-//			temp = Ptp_Rx_Timestamp[i];
-//			if(p == temp.buf){
-//				/* Timestamp mit dem aus Ringbuffer (scheint ungenauer zu sein) überschreiben & übergeben */
-//				*time_s = temp.timestamp_1.tv_sec;
-//				*time_ns = temp.timestamp_1.tv_nsec;
-//				return;
-//			}
-//		}
-//	}
-
-
-
-
 }
 #endif
