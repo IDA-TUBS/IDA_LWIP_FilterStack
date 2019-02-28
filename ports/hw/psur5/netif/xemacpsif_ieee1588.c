@@ -397,20 +397,20 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 		asm volatile ("nop");
 
 
-	u32 ppb = Adj;
+	int32_t ppb = Adj;						// Part per Billion (ns) = adj
 	//* ppb_pot;
 
-	if (ppb < 0) {
+	if (ppb < 0) {							// Check if error is positive or negative
 		neg_adj = TRUE;
 		ppb = -ppb;
 	}
 
-	incr = XEmacPs_ReadTsuIncr();
+	incr = XEmacPs_ReadTsuIncr();			// Get current addend and sub addend
 
 	addend = incr.nanoseconds;
 	addendsub = incr.subnanoseconds;
 
-	temp = ppb / clk_rate;
+	temp = ppb / clk_rate;					// That looks strange, temp is always 0, except for ppb > 250MHz
 	rem = ppb - clk_rate * temp;
 
 	addend = neg_adj ? addend - temp : addend + temp;
@@ -438,17 +438,11 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 
 	addendsub = neg_adj ? addendsub - diffsub : addendsub + diffsub;
 	/* RegBit[15:0] = Subns[23:8]; RegBit[31:24] = Subns[7:0] */
-	subnsreg = ((addendsub & GEM_SUBNSINCL_MASK) << GEM_SUBNSINCL_SHFT)
-			| ((addendsub & GEM_SUBNSINCH_MASK) >> GEM_SUBNSINCH_SHFT);
+	subnsreg = ((addendsub & GEM_SUBNSINCL_MASK) << GEM_SUBNSINCL_SHFT) | ((addendsub & GEM_SUBNSINCH_MASK) >> GEM_SUBNSINCH_SHFT);
 
 
-//	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET, subnsreg);
-//	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, addend);
-
-
-	/* Reprogram the Time stamp addend register with new Rate value and set ETH_TPTSCR */
-//	ETH_SetPTPTimeStampAddend((uint32_t) addend);
-//	ETH_EnablePTPTimeStampAddend();
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET, subnsreg);
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, addend);
 }
 
 
