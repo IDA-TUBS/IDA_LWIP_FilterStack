@@ -91,12 +91,12 @@ extern "C" {
 /* XEMACPS_TSU_TIMER_NSEC */
 #define XEMACPS_TIMER_NSEC_SIZE			30
 
-#define XEMACPS_PTP_TSU_NS_INCR_OFFSET		0x000001BC
-#define XEMACPS_PTP_TSU_NS_INCR_MSB_OFFSET	0 /* sub-ns MSB [23:8] which the 1588 timer will be incremented each clock cycle */
-#define XEMACPS_PTP_TSU_NS_INCR_MSB_SIZE	16
-#define XEMACPS_PTP_TSU_NS_INCR_LSB_OFFSET	24 /* sub-ns MSB [7:0] which the 1588 timer will be incremented each clock cycle */
-#define XEMACPS_PTP_TSU_NS_INCR_LSB_SIZE	8
-#define XEMACPS_PTP_TSU_NS_INCR_SIZE 		(XEMACPS_PTP_TSU_NS_INCR_MSB_SIZE + XEMACPS_PTP_TSU_NS_INCR_LSB_SIZE) /* 16 + 8 */
+#define XEMACPS_PTP_TSU_SUB_NS_INCR_OFFSET		0x000001BC
+#define XEMACPS_PTP_TSU_SUB_NS_INCR_MSB_OFFSET	0 /* sub-ns MSB [23:8] which the 1588 timer will be incremented each clock cycle */
+#define XEMACPS_PTP_TSU_SUB_NS_INCR_MSB_SIZE	16
+#define XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_OFFSET	24 /* sub-ns MSB [7:0] which the 1588 timer will be incremented each clock cycle */
+#define XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE	8
+#define XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE 		(XEMACPS_PTP_TSU_SUB_NS_INCR_MSB_SIZE + XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE) /* 16 + 8 */
 
 
 #define GEM_SUBNSINCL_SHFT                        24
@@ -147,8 +147,8 @@ typedef struct {
 /***************** Macros (Inline Functions) Definitions *********************/
 
 #define XEMACPS_SHIFT__LEAST_SUB_NS(value)				\
-	(((value) & ((1 << XEMACPS_PTP_TSU_NS_INCR_LSB_SIZE) - 1))	\
-	 << XEMACPS_PTP_TSU_NS_INCR_LSB_OFFSET)
+	(((value) & ((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE) - 1))	\
+	 << XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_OFFSET)
 
 /************************** Function Prototypes ******************************/
 

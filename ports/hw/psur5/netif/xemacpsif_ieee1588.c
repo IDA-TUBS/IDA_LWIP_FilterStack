@@ -109,7 +109,7 @@ void XEmacPs_InitTsu(void) {
 
 
 	temp = (NS_PER_SEC - NSIncrementVal * ENET_TSU_CLK_FREQ_HZ);
-	temp *= (1 << XEMACPS_PTP_TSU_NS_INCR_SIZE);
+	temp *= (1 << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE);
 	SubNSIncrementVal = temp / ENET_TSU_CLK_FREQ_HZ;
 
 //	u32 *Addr = (u32 *) 0xFF0E01DC;
@@ -377,27 +377,31 @@ void ETH_SetPTPTimeStampAddend(uint32_t Value) {
  * Output         : None
  * Return         : None
  *******************************************************************************/
+uint32_t addendArray[100];
+uint32_t subaddednArray[100];
+uint8_t addendIndex = 0;
 void ETH_PTPTime_AdjFreq(int32_t Adj) {
 
 	u32 addend = 0;
 	u32 addendsub = 0;;
-	u32 temp;
-	u32 rem;
+//	u32 temp = 0;
+//	u32 rem = 0;
 	XEmacPs_Tsu_incr incr;
-	u32 *incr_ns;
-	u32 *incr_subns;
-	u32 ppb_pot = 1000000000;
-	u32 adjsub;
-	BOOLEAN neg_adj;
-	u32 clk_rate = ENET_TSU_CLK_FREQ_HZ;
-	u32 diffsub;
-	u32 subnsreg;
+	u32 *incr_ns = 0;
+	u32 *incr_subns = 0;
+//	s32 ppb_pot = 1000000000;
+//	u32 adjsub = 0;
+	BOOLEAN neg_adj = 0;
+//	u32 clk_rate = ENET_TSU_CLK_FREQ_HZ;
+//	u32 diffsub = 0;
+	u32 subnsreg = 0;
+	u64 period, temp;
 
 	if (Adj != 0)
 		asm volatile ("nop");
 
 
-	int32_t ppb = Adj;						// Part per Billion (ns) = adj
+	s32 ppb = Adj;						// Part per Billion (ns) = adj
 	//* ppb_pot;
 
 	if (ppb < 0) {							// Check if error is positive or negative
@@ -407,39 +411,26 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 
 	incr = XEmacPs_ReadTsuIncr();			// Get current addend and sub addend
 
+	/* scaling */
+	period = ((u64) incr.nanoseconds << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) + incr.subnanoseconds;
+	temp = (u64)ppb * period;
+	/* Divide with rounding, equivalent to floating dividing:
+	 * (temp / NSEC_PER_SEC) + 0.5
+	 */
+	temp = (temp + (NS_PER_SEC >> 1))/ NS_PER_SEC;
+
+	period = neg_adj ? (period - temp) : (period + temp);
+
+	incr.nanoseconds = (period >> XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) & ((1 << GEM_SUBNSINCH_SHFT) - 1);
+	incr.subnanoseconds = period & ((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) - 1);
+
 	addend = incr.nanoseconds;
-	addendsub = incr.subnanoseconds;
+	subnsreg = ((incr.subnanoseconds  & GEM_SUBNSINCL_MASK) << GEM_SUBNSINCL_SHFT)
+			| ((incr.subnanoseconds  & GEM_SUBNSINCH_MASK) >> GEM_SUBNSINCH_SHFT);
 
-	temp = ppb / clk_rate;					// That looks strange, temp is always 0, except for ppb > 250MHz
-	rem = ppb - clk_rate * temp;
-
-	addend = neg_adj ? addend - temp : addend + temp;
-
-
-	if (rem) {
-		adjsub = rem;
-		/* Multiple by 2^24 as subns field is 24 bits */
-		adjsub = adjsub << 24;
-
-		diffsub = adjsub /  clk_rate;
-	} else {
-		diffsub = 0;
-	}
-
-	if (neg_adj && (diffsub > addendsub)) {
-		addend -= 1;
-		rem = (NS_PER_SEC - rem);
-		neg_adj = FALSE;
-
-		adjsub = rem;
-		adjsub = adjsub << 24;
-		diffsub = adjsub / clk_rate;
-	}
-
-	addendsub = neg_adj ? addendsub - diffsub : addendsub + diffsub;
-	/* RegBit[15:0] = Subns[23:8]; RegBit[31:24] = Subns[7:0] */
-	subnsreg = ((addendsub & GEM_SUBNSINCL_MASK) << GEM_SUBNSINCL_SHFT) | ((addendsub & GEM_SUBNSINCH_MASK) >> GEM_SUBNSINCH_SHFT);
-
+	addendArray[addendIndex] = addend;
+	subaddednArray[addendIndex] = incr.subnanoseconds;
+	addendIndex = (addendIndex + 1) % 100;
 
 	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET, subnsreg);
 	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, addend);
@@ -452,7 +443,7 @@ void XEmacPs_WriteTsuIncr(u32 ns, u32 subns)
 	u32 ns_reg;
 
 	sub_ns_reg = XEMACPS_SHIFT__LEAST_SUB_NS(subns)
-			| (((subns & ~((1 << XEMACPS_PTP_TSU_NS_INCR_LSB_SIZE) - 1)) >> XEMACPS_PTP_TSU_NS_INCR_LSB_SIZE));
+			| (((subns & ~((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE) - 1)) >> XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE));
 
 	/* tsu_timer_incr register must be written after the tsu_timer_incr_sub_ns register
 	 * and the write operation will cause the value written to the tsu_timer_incr_sub_ns
@@ -483,12 +474,12 @@ XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void)
 	XEmacPs_Tsu_incr incr;
 
 
-	sub_ns_reg = XEmacPs_ReadReg((u32 )XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_NS_INCR_OFFSET);
+	sub_ns_reg = XEmacPs_ReadReg((u32 )XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_NS_INCR_OFFSET);
 	incr.nanoseconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET);
 
 	/* RegBit[15:0] = Subns[23:8]; RegBit[31:24] = Subns[7:0] */
-	sub_ns_reg = ((sub_ns_reg & ((1 << XEMACPS_PTP_TSU_NS_INCR_MSB_SIZE) - 1)) << XEMACPS_PTP_TSU_NS_INCR_LSB_SIZE)
-			| ((sub_ns_reg & ~((1 << XEMACPS_PTP_TSU_NS_INCR_MSB_SIZE) - 1)) >> (XEMACPS_PTP_TSU_NS_INCR_MSB_SIZE + XEMACPS_PTP_TSU_NS_INCR_LSB_SIZE));
+	sub_ns_reg = ((sub_ns_reg & ((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_MSB_SIZE) - 1)) << XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE)
+			| ((sub_ns_reg & ~((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_MSB_SIZE) - 1)) >> (XEMACPS_PTP_TSU_SUB_NS_INCR_MSB_SIZE + XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE));
 
 	incr.subnanoseconds = sub_ns_reg;
 
