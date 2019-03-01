@@ -361,7 +361,7 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 	u64 temp;
 	u32 word;
 
-	s32 ppb = Adj * 1000;						// Part per Billion (ns) = adj
+	s32 ppb = Adj;						// Part per Billion (ns) = adj
 
 	if (ppb < 0) {							// Check if error is positive or negative
 		neg_adj = TRUE;
@@ -370,20 +370,21 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 
 	incr = XEmacPs_ReadTsuIncr();			// Get current addend and sub addend
 
-	/* scaling: unused(8bit) | ns(8bit) | fractions(16bit) */
-	word = ((u64)incr.nanoseconds << 16) + incr.subnanoseconds;
+	/* scaling: ns(8bit) | fractions(24bit) */
+	word = ((u64)incr.nanoseconds << 24) + incr.subnanoseconds;
 	temp = (u64)ppb * word;
 	/* Divide with rounding, equivalent to floating dividing:
 	 * (temp / USEC_PER_SEC) + 0.5
 	 */
-	temp += (USEC_PER_SEC >> 1);
-	temp >>= 16; /* remove fractions */
-	temp = temp/ (u64)USEC_PER_SEC;
+	temp = temp / (u64)NS_PER_SEC;
+//	temp += (NS_PER_SEC >> 1);
+//	temp >>= 24; /* remove fractions */
+//	temp = temp/ (u64)NS_PER_SEC;
 	temp = neg_adj ? (word - temp) : (word + temp);
 
 
-	incr.nanoseconds = (temp >> 16) & ((1 << 8) - 1);
-	incr.subnanoseconds = temp & ((1 << 16) - 1);
+	incr.nanoseconds = (temp >> 24) & ((1 << 8) - 1);
+	incr.subnanoseconds = temp & ((1 << 24) - 1);
 
 	subNSArray[subNSArrayIndex] = incr.subnanoseconds;
 	subNSArrayIndex = (subNSArrayIndex + 1) % 500;
