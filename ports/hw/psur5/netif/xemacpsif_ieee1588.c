@@ -38,8 +38,14 @@
  */
 
 
-XEmacPs_Ptp_ts_buff Ptp_Rx_Timestamp;
-XEmacPs_Ptp_ts_buff Ptp_Tx_Timestamp;
+//XEmacPs_Ptp_ts_buff Ptp_Rx_Timestamp;
+//XEmacPs_Ptp_ts_buff Ptp_Tx_Timestamp;
+
+uint32_t Ptp_RxTimeStampSeconds;
+uint32_t Ptp_RxTimeStampNSeconds;
+
+uint32_t Ptp_TxTimeStampSeconds;
+uint32_t Ptp_TxTimeStampNSeconds;
 
 struct ptptime_t PTP_BUFF;
 
@@ -144,14 +150,14 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET,
 			XEMACPS_PTP_INT_SYNC_TX_MASK);
 
-	Ptp_Rx_Timestamp.tail = 0;
-	Ptp_Tx_Timestamp.tail = 0;
-
-	Ptp_Rx_Timestamp.head = 0;
-	Ptp_Tx_Timestamp.head = 0;
-
-	Ptp_Rx_Timestamp.len = 0;
-	Ptp_Tx_Timestamp.len = 0;
+//	Ptp_Rx_Timestamp.tail = 0;
+//	Ptp_Tx_Timestamp.tail = 0;
+//
+//	Ptp_Rx_Timestamp.head = 0;
+//	Ptp_Tx_Timestamp.head = 0;
+//
+//	Ptp_Rx_Timestamp.len = 0;
+//	Ptp_Tx_Timestamp.len = 0;
 
 	XEmacPs_InitTsu();
 
@@ -180,16 +186,17 @@ void XEmacPs_GetRxTimestamp(void) {
 
 	s_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_SEC_OFFSET);
 	ns_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_NSEC_OFFSET);
+	Ptp_RxTimeStampSeconds = s_val;
+	Ptp_RxTimeStampNSeconds = ns_val;
 
-
-	OS_ENTER_CRITICAL();
-	head = Ptp_Rx_Timestamp.head;
-	Ptp_Rx_Timestamp.seconds[head] = s_val;
-	Ptp_Rx_Timestamp.nseconds[head] = ns_val;
-	head = (head + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
-	Ptp_Rx_Timestamp.head = head;
-	Ptp_Rx_Timestamp.len++;
-	OS_EXIT_CRITICAL();
+//	OS_ENTER_CRITICAL();
+//	head = Ptp_Rx_Timestamp.head;
+//	Ptp_Rx_Timestamp.seconds[head] = s_val;
+//	Ptp_Rx_Timestamp.nseconds[head] = ns_val;
+//	head = (head + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
+//	Ptp_Rx_Timestamp.head = head;
+//	Ptp_Rx_Timestamp.len++;
+//	OS_EXIT_CRITICAL();
 
 
 }
@@ -205,13 +212,16 @@ void XEmacPs_GetTxTimestamp(void) {
 	s_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_SEC_OFFSET);
 	ns_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_NSEC_OFFSET);
 
-	OS_ENTER_CRITICAL();
-	head = Ptp_Tx_Timestamp.head;
-	Ptp_Tx_Timestamp.seconds[head] = s_val;
-	Ptp_Tx_Timestamp.nseconds[head] = ns_val;
-	head = (head + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
-	Ptp_Tx_Timestamp.head = head;
-	OS_EXIT_CRITICAL();
+//	OS_ENTER_CRITICAL();
+//	head = Ptp_Tx_Timestamp.head;
+//	Ptp_Tx_Timestamp.seconds[head] = s_val;
+//	Ptp_Tx_Timestamp.nseconds[head] = ns_val;
+//	head = (head + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
+//	Ptp_Tx_Timestamp.head = head;
+//	OS_EXIT_CRITICAL();
+
+	Ptp_TxTimeStampSeconds = s_val;
+	Ptp_TxTimeStampNSeconds = ns_val;
 
 	sys_sem_signal(&sem_tx_ptp_available);
 
@@ -340,12 +350,18 @@ void ETH_SetPTPTimeStampAddend(uint32_t Value) {
  * Output         : None
  * Return         : None
  *******************************************************************************/
+uint32_t subNSArray[500];
+uint32_t subNSArrayIndex = 0;
+
+#define USEC_PER_SEC	1000000L
 void ETH_PTPTime_AdjFreq(int32_t Adj) {
 	XEmacPs_Tsu_incr incr;
 	BOOLEAN neg_adj = 0;
-	u64 period, temp;
+//	u32 period;
+	u64 temp;
+	u32 word;
 
-	s32 ppb = Adj;						// Part per Billion (ns) = adj
+	s32 ppb = Adj * 1000;						// Part per Billion (ns) = adj
 
 	if (ppb < 0) {							// Check if error is positive or negative
 		neg_adj = TRUE;
@@ -354,18 +370,23 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 
 	incr = XEmacPs_ReadTsuIncr();			// Get current addend and sub addend
 
-	/* scaling */
-	period = ((u64) incr.nanoseconds << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) + incr.subnanoseconds;
-	temp = (u64)ppb * period;
+	/* scaling: unused(8bit) | ns(8bit) | fractions(16bit) */
+	word = ((u64)incr.nanoseconds << 16) + incr.subnanoseconds;
+	temp = (u64)ppb * word;
 	/* Divide with rounding, equivalent to floating dividing:
-	 * (temp / NSEC_PER_SEC) + 0.5
+	 * (temp / USEC_PER_SEC) + 0.5
 	 */
-	temp = (temp + (NS_PER_SEC >> 1))/ NS_PER_SEC;
+	temp += (USEC_PER_SEC >> 1);
+	temp >>= 16; /* remove fractions */
+	temp = temp/ (u64)USEC_PER_SEC;
+	temp = neg_adj ? (word - temp) : (word + temp);
 
-	period = neg_adj ? (period - temp) : (period + temp);
 
-	incr.nanoseconds = (period >> XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) & ((1 << GEM_SUBNSINCH_SHFT) - 1);
-	incr.subnanoseconds = period & ((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) - 1);
+	incr.nanoseconds = (temp >> 16) & ((1 << 8) - 1);
+	incr.subnanoseconds = temp & ((1 << 16) - 1);
+
+	subNSArray[subNSArrayIndex] = incr.subnanoseconds;
+	subNSArrayIndex = (subNSArrayIndex + 1) % 500;
 
 	XEmacPs_WriteTsuIncr(incr.nanoseconds, incr.subnanoseconds);
 }
@@ -418,21 +439,23 @@ void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
 
 		sys_sem_wait(&sem_tx_ptp_available);
 
-		*time_s = txtimestamp.tv_sec;
-		*time_ns = txtimestamp.tv_nsec;
+		*time_s = Ptp_TxTimeStampSeconds;
+		*time_ns = Ptp_TxTimeStampNSeconds;
 	} else {
-		OS_ENTER_CRITICAL();
-
-		if (Ptp_Rx_Timestamp.len > 0) {
-			index = Ptp_Rx_Timestamp.tail;
-			*time_s = Ptp_Rx_Timestamp.seconds[index];
-			*time_ns = Ptp_Rx_Timestamp.nseconds[index];
-			index = (index + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
-			Ptp_Rx_Timestamp.tail = index;
-		} else
-			asm  volatile ("nop");
-
-		OS_EXIT_CRITICAL();
+		*time_s = Ptp_RxTimeStampSeconds;
+		*time_ns = Ptp_RxTimeStampNSeconds;
+		//		OS_ENTER_CRITICAL();
+//
+//		if (Ptp_Rx_Timestamp.len > 0) {
+//			index = Ptp_Rx_Timestamp.tail;
+//			*time_s = Ptp_Rx_Timestamp.seconds[index];
+//			*time_ns = Ptp_Rx_Timestamp.nseconds[index];
+//			index = (index + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
+//			Ptp_Rx_Timestamp.tail = index;
+//		} else
+//			asm  volatile ("nop");
+//
+//		OS_EXIT_CRITICAL();
 
 
 	}
