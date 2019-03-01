@@ -78,9 +78,6 @@ extern "C" {
 #define XEMACPS_PTP_TSU_SUB_NS_LSB_MASK                        0xFF		// Masks the LSB of the subns Register
 #define XEMACPS_PTP_TSU_SUB_NS_MSB_MASK                        0xFFFF00	// Masks the MSB of the subns register
 
-#define ETH_PTP_PositiveTime      ((uint32_t)0x00000000)  /*!< Positive time value */
-#define ETH_PTP_NegativeTime      ((uint32_t)0x80000000)  /*!< Negative time value */
-
 
 /**************************** Type Definitions *******************************/
 
