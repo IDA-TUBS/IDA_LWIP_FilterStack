@@ -38,26 +38,36 @@
  */
 
 
-//XEmacPs_Ptp_ts_buff Ptp_Rx_Timestamp;
-//XEmacPs_Ptp_ts_buff Ptp_Tx_Timestamp;
-
+/*
+ * PTP Timestamp from Rx ptp capture register
+ */
 uint32_t Ptp_RxTimeStampSeconds;
 uint32_t Ptp_RxTimeStampNSeconds;
 
+/*
+ * PTP Timestamp from Tx ptp capture register
+ */
 uint32_t Ptp_TxTimeStampSeconds;
 uint32_t Ptp_TxTimeStampNSeconds;
 
-struct ptptime_t PTP_BUFF;
-
+/*
+ * Semaphore to inform the ptp interface about
+ * new captures
+ */
 sys_sem_t sem_tx_ptp_available;
 
-XEmacPs_Tsu_incr Ptp_TSU_incr;
+/*
+ * Initial TSU Increment
+ */
+XEmacPs_Tsu_incr Ptp_TSU_base_incr;
+
+
 
 /*****************************************************************************/
 /**
  * Calculate clock configuration register values for indicated input clock
  *
- * @param	- Freq
+ * @param	- TSU Frequency
  *
  * @return	- nanoseconds per cycle
  *
@@ -70,12 +80,18 @@ u32 XEmacPs_TsuCalcClk(u32 Freq) {
 	return Period_ns;
 }
 
-/*
+
+/*****************************************************************************/
+/**
  * Write to network_config and dma_config register
  * to enable Rx and Tx Checksum Offloading.
  * LwIP still has to be informed about the crc offload
- * @param netif to be worked on
- */
+ *
+ * @param xemacpsif_s *xemacpsif instance to be worked on
+ *
+ * @note		None.
+ *
+ ******************************************************************************/
 void XEmacPs_EnableChecksumOffload(xemacpsif_s *xemacpsif) {
 
 	u32 Reg;
@@ -107,22 +123,17 @@ void XEmacPs_EnableChecksumOffload(xemacpsif_s *xemacpsif) {
  ******************************************************************************/
 void XEmacPs_InitTsu(void) {
 
-	u32 NSIncrementVal, SubNSIncrementVal;
-	u32 Freq;
 	u64 temp;
 
-	NSIncrementVal = XEmacPs_TsuCalcClk(
+	Ptp_TSU_base_incr.nanoseconds = XEmacPs_TsuCalcClk(
 			ENET_TSU_CLK_FREQ_HZ);
 
 
-	temp = (NS_PER_SEC - NSIncrementVal * ENET_TSU_CLK_FREQ_HZ);
+	temp = (NS_PER_SEC - Ptp_TSU_base_incr.nanoseconds * ENET_TSU_CLK_FREQ_HZ);
 	temp *= (1 << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE);
-	SubNSIncrementVal = temp / ENET_TSU_CLK_FREQ_HZ;
+	Ptp_TSU_base_incr.subnanoseconds = temp / ENET_TSU_CLK_FREQ_HZ;
 
-	Ptp_TSU_incr.nanoseconds = NSIncrementVal;
-	Ptp_TSU_incr.subnanoseconds = SubNSIncrementVal;
-
-	XEmacPs_WriteTsuIncr(NSIncrementVal, SubNSIncrementVal);
+	XEmacPs_WriteTsuIncr(Ptp_TSU_base_incr.nanoseconds, Ptp_TSU_base_incr.subnanoseconds);
 
 }
 
@@ -144,24 +155,18 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 
 	regVal = XEmacPs_ReadReg(xemacpsif->emacps.Config.BaseAddress,
 			XEMACPS_NWCTRL_OFFSET);
+
 	/* Enable One Step Sync */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress,
 			XEMACPS_NWCTRL_OFFSET, regVal | XEMACPS_NWCTRL_OSSM_MASK);
+
 	/*Enable PTP Sync Received Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET,
 			XEMACPS_PTP_INT_SYNC_RX_MASK);
+
 	/* Enable PTP Sync Transmitted Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET,
 			XEMACPS_PTP_INT_SYNC_TX_MASK);
-
-//	Ptp_Rx_Timestamp.tail = 0;
-//	Ptp_Tx_Timestamp.tail = 0;
-//
-//	Ptp_Rx_Timestamp.head = 0;
-//	Ptp_Tx_Timestamp.head = 0;
-//
-//	Ptp_Rx_Timestamp.len = 0;
-//	Ptp_Tx_Timestamp.len = 0;
 
 	XEmacPs_InitTsu();
 
@@ -172,7 +177,7 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 /**
  * Reads tsu_ptp_rx_sec and tsu_ptp_rx_nsec Registers from GEM3.
  * An Interrupt is raised when an PTP Event Crosses the MII Boundaries.
- * The ISR calls this funktion to store the received timestamps in a ringbuffer.
+ * The ISR calls this function to store the received timestamps in a ts buffer.
  *
  * @param	None.
  *
@@ -185,44 +190,31 @@ void XEmacPs_GetRxTimestamp(void) {
 
 	u32 s_val;
 	u32 ns_val;
-	u8 head;
-	OS_CPU_SR cpu_sr;
 
 	s_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_SEC_OFFSET);
 	ns_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_NSEC_OFFSET);
 	Ptp_RxTimeStampSeconds = s_val;
 	Ptp_RxTimeStampNSeconds = ns_val;
 
-//	OS_ENTER_CRITICAL();
-//	head = Ptp_Rx_Timestamp.head;
-//	Ptp_Rx_Timestamp.seconds[head] = s_val;
-//	Ptp_Rx_Timestamp.nseconds[head] = ns_val;
-//	head = (head + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
-//	Ptp_Rx_Timestamp.head = head;
-//	Ptp_Rx_Timestamp.len++;
-//	OS_EXIT_CRITICAL();
-
-
 }
 
+
+/*****************************************************************************/
+/**
+*	Read the PTP Tx Capture register and write them to the Tx Timestamp buffer
+*
+* @param N/A
+*
+* @return N/A
+*
+******************************************************************************/
 void XEmacPs_GetTxTimestamp(void) {
 
 	u32 s_val;
 	u32 ns_val;
-	u8 head;
-
-	OS_CPU_SR cpu_sr;
 
 	s_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_SEC_OFFSET);
 	ns_val = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_NSEC_OFFSET);
-
-//	OS_ENTER_CRITICAL();
-//	head = Ptp_Tx_Timestamp.head;
-//	Ptp_Tx_Timestamp.seconds[head] = s_val;
-//	Ptp_Tx_Timestamp.nseconds[head] = ns_val;
-//	head = (head + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
-//	Ptp_Tx_Timestamp.head = head;
-//	OS_EXIT_CRITICAL();
 
 	Ptp_TxTimeStampSeconds = s_val;
 	Ptp_TxTimeStampNSeconds = ns_val;
@@ -230,14 +222,18 @@ void XEmacPs_GetTxTimestamp(void) {
 	sys_sem_signal(&sem_tx_ptp_available);
 
 }
-/*******************************************************************************
- * Function Name  : ETH_PTPTime_GetTime
- * Description    : Read the current timer values from tsu_sec_register
- * 					and tsu_nsec_register
- * Input          : timestamp in which the values are written
- * Output         : None
- * Return         : None
- *******************************************************************************/
+
+
+/*****************************************************************************/
+/**
+*	Read the current timer values from tsu_sec_register
+ * 	and tsu_nsec_register
+*
+* @param timestamp in which the values are written
+*
+* @return N/A
+*
+******************************************************************************/
 void ETH_PTPTime_GetTime(struct ptptime_t* timestamp) {
 
 	timestamp->tv_sec = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR,
@@ -251,17 +247,19 @@ void ETH_PTPTime_GetTime(struct ptptime_t* timestamp) {
 		timestamp->tv_sec = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR,
 						XEMACPS_PTP_TSU_SEC_REG_OFFSET);
 	}
-
-
 }
 
-/*******************************************************************************
- * Function Name  : ETH_PTPTimeStampSetTime
- * Description    : Initialize time base
- * Input          : Time with sign
- * Output         : None
- * Return         : None
- *******************************************************************************/
+/*****************************************************************************/
+/**
+*	Initialize time base
+*
+* @param Sign wether the Time is pos or neg.
+* 		 SecondsValue Seconds to be writen to the reg
+* 		 NanoSecondValue	Nseconds to be writen
+*
+* @return N/A
+*
+******************************************************************************/
 void ETH_PTPTime_SetTime(struct ptptime_t * timestamp) {
 	uint32_t Sign;
 	uint32_t SecondValue;
@@ -286,16 +284,18 @@ void ETH_PTPTime_SetTime(struct ptptime_t * timestamp) {
 	ETH_SetPTPTimeStampUpdate(Sign, SecondValue, NanoSecondValue);
 }
 
-/*
- *******************************************************************************
- * Function Name  : ETH_SetPTPTimeStampUpdate
- * Description    : Overwrites the TSU Timer with values calculated by PTPd
- * Input          : Sign wether the Time is pos or neg.
- * 					Seconds to be writen to the reg
- * 					Nseconds to be writen
- * Output         : None
- * Return         : None
- *******************************************************************************/
+
+/*****************************************************************************/
+/**
+*	Overwrites the TSU Timer with values calculated by PTPd
+*
+* @param 	Sign wether the Time is pos or neg.
+* 			SecondsValue Seconds to be writen to the reg
+* 			NanoSecondValue	Nseconds to be writen
+*
+* @return N/A
+*
+******************************************************************************/
 void ETH_SetPTPTimeStampUpdate(uint32_t Sign, uint32_t SecondValue,
 		uint32_t NanoSecondValue) {
 
@@ -306,20 +306,23 @@ void ETH_SetPTPTimeStampUpdate(uint32_t Sign, uint32_t SecondValue,
 			NanoSecondValue);
 }
 
-/*
- *******************************************************************************
- * Function Name  : ETH_PTPTimeStampUpdateOffset
- * Description    : Updates time base offset
- * Input          : Time offset with sign
- * Output         : None
- * Return         : None
- *******************************************************************************/
+/*****************************************************************************/
+/**
+* Update the Offset by coarse correction method by
+* Overwriting the timer counter register
+*
+* @param struct ptptime_t * timeoffset Time correction values
+*
+* @return N/A
+*
+* @note
+* todo this is only called from updateTime - never used?
+*
+******************************************************************************/
 void ETH_PTPTime_UpdateOffset(struct ptptime_t * timeoffset) {
 	uint32_t Sign;
 	uint32_t SecondValue;
 	uint32_t NanoSecondValue;
-	uint32_t SubSecondValue;
-	uint32_t addend;
 
 	/* determine sign and correct Second and Nanosecond values */
 	if (timeoffset->tv_sec < 0
@@ -337,44 +340,52 @@ void ETH_PTPTime_UpdateOffset(struct ptptime_t * timeoffset) {
 	ETH_SetPTPTimeStampUpdate(Sign, SecondValue, NanoSecondValue);
 }
 
+/*****************************************************************************/
 /**
- * @brief  Sets the Time Stamp Addend value.
- * @param  Value: specifies the PTP Time Stamp Addend Register value.
- * @retval None
- */
+* Write the tsu incr
+*
+* @note
+* todo do we need this?
+*
+******************************************************************************/
 void ETH_SetPTPTimeStampAddend(uint32_t Value) {
 	/* Set the PTP Time Stamp Addend Register */
 	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, Value);
 }
 
-/*******************************************************************************
- * Function Name  : ETH_PTPTimeStampAdjFreq
- * Description    : Updates time stamp addend register
- * Input          : Correction value in thousandth of ppm (Adj*10^9)
- * Output         : None
- * Return         : None
- *******************************************************************************/
-uint32_t subNSArray[500];
-uint32_t subNSArrayIndex = 0;
 
-#define USEC_PER_SEC	1000000L
+/*****************************************************************************/
+/**
+* Frequenzy Adjustment by adjusting the nanoseconds and subnanoseconds inrements:
+* The base(!) nano- and subnano increments are concatenated in one fractional word.
+* The delta is computed as follows.
+*
+* 		delta = ppb * word / 10^-9 (Nanoseconds per second)
+*
+* This delta is added/subtracted from the word and the nanoseconds/subnanoseconds
+* portion of this word is writen to the inrement registers
+*
+* @param Adj is the correction value in thousands if ppm (Adj *10^-9)
+*
+* @return N/A
+*
+* @note
+*
+******************************************************************************/
 void ETH_PTPTime_AdjFreq(int32_t Adj) {
 	XEmacPs_Tsu_incr incr;
 	BOOLEAN neg_adj = 0;
 	u64 temp;
 	u32 word;
-
-	s32 ppb = Adj;						// Part per Billion (ns) = adj
+	s32 ppb = Adj;							// Part per Billion (ns) = adj
 
 	if (ppb < 0) {							// Check if error is positive or negative
 		neg_adj = TRUE;
 		ppb = -ppb;
 	}
 
-	incr.nanoseconds = Ptp_TSU_incr.nanoseconds;
-	incr.subnanoseconds = Ptp_TSU_incr.subnanoseconds;
-
-//	incr = XEmacPs_ReadTsuIncr();			// Get current addend and sub addend
+	incr.nanoseconds = Ptp_TSU_base_incr.nanoseconds;
+	incr.subnanoseconds = Ptp_TSU_base_incr.subnanoseconds;
 
 	/* scaling: ns(8bit) | fractions(24bit) */
 	word = ((u64)incr.nanoseconds << 24) + incr.subnanoseconds;
@@ -383,39 +394,52 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 	 * (temp / USEC_PER_SEC) + 0.5
 	 */
 	temp = temp / (u64)NS_PER_SEC;
-//	temp += (NS_PER_SEC >> 1);
-//	temp >>= 24; /* remove fractions */
-//	temp = temp/ (u64)NS_PER_SEC;
 	temp = neg_adj ? (word - temp) : (word + temp);
 
-
-	incr.nanoseconds = (temp >> 24) & ((1 << 8) - 1);
-	incr.subnanoseconds = temp & ((1 << 24) - 1);
-//	incr.subnanoseconds = neg_adj ? 5700 : 7700;
-
-
-	subNSArray[subNSArrayIndex] = incr.subnanoseconds;
-	subNSArrayIndex = (subNSArrayIndex + 1) % 500;
+	/* write the calculated nanoseconds and subnanoseconds increment in the register */
+	incr.nanoseconds = (temp >> XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) & ((1 << XEMACPS_PTP_TSU_NS_INCR_SIZE) - 1);
+	incr.subnanoseconds = temp & ((1 << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE) - 1);
 
 	XEmacPs_WriteTsuIncr(incr.nanoseconds, incr.subnanoseconds);
 }
 
-
+/*****************************************************************************/
+/**
+* Write the tsu_timer_incr and tsu_timer_incr_sub_nsec.
+* These are the values by which the timer register will be imcremented
+* each clock cycle.
+*
+* @param ns is the nanosecond value to be writen
+* @param subns is the subnanoseconds value
+*
+* @return N/A
+*
+* @note tsu_timer_incr register must be written after the tsu_timer_incr_sub_ns register
+	 and the write operation will cause the value written to the tsu_timer_incr_sub_ns
+	 register to take effect.
+*
+******************************************************************************/
 void XEmacPs_WriteTsuIncr(u32 ns, u32 subns)
 {
 	u32 sub_ns_reg;
 
-	sub_ns_reg = ((subns  & GEM_SUBNSINCL_MASK) << GEM_SUBNSINCL_SHFT) | ((subns  & GEM_SUBNSINCH_MASK) >> GEM_SUBNSINCH_SHFT);
-
-	/* tsu_timer_incr register must be written after the tsu_timer_incr_sub_ns register
-	 * and the write operation will cause the value written to the tsu_timer_incr_sub_ns
-	 * register to take effect.
+	/*
+	 * subnanoseconds are divided into msb and lsb.
+	 * lsb [31:24], msb [15:0]
 	 */
+	sub_ns_reg = ((subns  & XEMACPS_PTP_TSU_SUB_NS_LSB_MASK) << XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_OFFSET) | ((subns  & XEMACPS_PTP_TSU_SUB_NS_MSB_MASK) >> XEMACPS_PTP_TSU_SUB_NS_INCR_LSB_SIZE);
+
 	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET, sub_ns_reg);
 	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET, ns);
 }
 
-
+/*****************************************************************************/
+/**
+* Read the current Inrements
+*
+* @return XEmacPs_Tsu_incr incr is the increment, including nanoseconds and subns
+*
+******************************************************************************/
 XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void)
 {
 	u32 sub_ns_reg;
@@ -423,7 +447,7 @@ XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void)
 	XEmacPs_Tsu_incr incr;
 
 
-	sub_ns_reg = XEmacPs_ReadReg((u32 )XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_NS_INCR_OFFSET);
+	sub_ns_reg = XEmacPs_ReadReg((u32 )XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_SUB_INC_OFFSET);
 	incr.nanoseconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_INC_OFFSET);
 
 	/* RegBit[15:0] = Subns[23:8]; RegBit[31:24] = Subns[7:0] */
@@ -435,14 +459,18 @@ XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void)
 	return incr;
 }
 
-
+/*****************************************************************************/
+/**
+* Get the current PTP Timestamp from the capture register
+*
+* @param time_s nanoseconds portion from timestamp
+* @param time_ns subnanoseconds portion
+* @param receive is the direction, true for receive
+*
+*
+******************************************************************************/
 void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
 {
-	EthPacketTimestamp temp;
-	struct ptptime_t timestamp;
-	struct ptptime_t txtimestamp;
-	u8 index;
-	OS_CPU_SR cpu_sr;
 
 	if(!receive){
 
@@ -453,19 +481,6 @@ void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
 	} else {
 		*time_s = Ptp_RxTimeStampSeconds;
 		*time_ns = Ptp_RxTimeStampNSeconds;
-		//		OS_ENTER_CRITICAL();
-//
-//		if (Ptp_Rx_Timestamp.len > 0) {
-//			index = Ptp_Rx_Timestamp.tail;
-//			*time_s = Ptp_Rx_Timestamp.seconds[index];
-//			*time_ns = Ptp_Rx_Timestamp.nseconds[index];
-//			index = (index + 1) % XEMACPS_PTP_TS_BUFF_SIZE;
-//			Ptp_Rx_Timestamp.tail = index;
-//		} else
-//			asm  volatile ("nop");
-//
-//		OS_EXIT_CRITICAL();
-
 
 	}
 }
