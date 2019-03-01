@@ -51,6 +51,7 @@ struct ptptime_t PTP_BUFF;
 
 sys_sem_t sem_tx_ptp_available;
 
+XEmacPs_Tsu_incr Ptp_TSU_incr;
 
 /*****************************************************************************/
 /**
@@ -117,6 +118,9 @@ void XEmacPs_InitTsu(void) {
 	temp = (NS_PER_SEC - NSIncrementVal * ENET_TSU_CLK_FREQ_HZ);
 	temp *= (1 << XEMACPS_PTP_TSU_SUB_NS_INCR_SIZE);
 	SubNSIncrementVal = temp / ENET_TSU_CLK_FREQ_HZ;
+
+	Ptp_TSU_incr.nanoseconds = NSIncrementVal;
+	Ptp_TSU_incr.subnanoseconds = SubNSIncrementVal;
 
 	XEmacPs_WriteTsuIncr(NSIncrementVal, SubNSIncrementVal);
 
@@ -357,7 +361,6 @@ uint32_t subNSArrayIndex = 0;
 void ETH_PTPTime_AdjFreq(int32_t Adj) {
 	XEmacPs_Tsu_incr incr;
 	BOOLEAN neg_adj = 0;
-//	u32 period;
 	u64 temp;
 	u32 word;
 
@@ -368,7 +371,10 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 		ppb = -ppb;
 	}
 
-	incr = XEmacPs_ReadTsuIncr();			// Get current addend and sub addend
+	incr.nanoseconds = Ptp_TSU_incr.nanoseconds;
+	incr.subnanoseconds = Ptp_TSU_incr.subnanoseconds;
+
+//	incr = XEmacPs_ReadTsuIncr();			// Get current addend and sub addend
 
 	/* scaling: ns(8bit) | fractions(24bit) */
 	word = ((u64)incr.nanoseconds << 24) + incr.subnanoseconds;
@@ -385,6 +391,8 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 
 	incr.nanoseconds = (temp >> 24) & ((1 << 8) - 1);
 	incr.subnanoseconds = temp & ((1 << 24) - 1);
+//	incr.subnanoseconds = neg_adj ? 5700 : 7700;
+
 
 	subNSArray[subNSArrayIndex] = incr.subnanoseconds;
 	subNSArrayIndex = (subNSArrayIndex + 1) % 500;
