@@ -273,6 +273,30 @@ void ETH_PTPTime_AdjFreq(int32_t Adj) {
 
 /*****************************************************************************/
 /**
+* Offset Adjustment
+*
+* @param Adj is the correction value in ppb (ns)
+*
+* @return N/A
+*
+* @note
+*
+******************************************************************************/
+void ETH_PTPTime_AdjOffset(int32_t Adj) {
+	u32 offset;							// Part per Billion (ns) = adj
+
+	if (Adj < 0) {						// Check if error is positive or negative
+		offset = -Adj;
+		offset |= (1 << 31);
+	} else {
+		offset = Adj;
+	}
+
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_ADJUST_OFFSET, offset);
+}
+
+/*****************************************************************************/
+/**
 * Write the tsu_timer_incr and tsu_timer_incr_sub_nsec.
 * These are the values by which the timer register will be imcremented
 * each clock cycle.

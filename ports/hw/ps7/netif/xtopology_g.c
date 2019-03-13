@@ -3,7 +3,7 @@
 
 struct xtopology_t xtopology[] = {
 	{
-		0xFF0E0000,
+		0xE000B000,
 		xemac_type_emacps,
 		0x0,
 		0x0,

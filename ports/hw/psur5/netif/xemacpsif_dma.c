@@ -113,7 +113,7 @@ static s32_t emac_intr_num;
 
 #if defined __aarch64__
 u8_t bd_space[0x200000] __attribute__ ((aligned (0x200000)));
-#else
+#elif defined (ARMR5)
 //u8_t bd_space[0x100000] __attribute__ ((aligned (0x100000))) __attribute__ ((section (".psu_r5_tcm_ram_0_MEM_0")));
 /*
  * We are using just 1 MAC, therefore we need space for 1 rx and 1 tx BD totaling 64 KB
@@ -127,7 +127,13 @@ typedef struct {
 BUFFER_DESC bd_space[XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC] __attribute__ ((aligned (0x10000))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
 //BUFFER_DESC tx_bd_terminate __attribute__ ((aligned (8))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
 //BUFFER_DESC rx_bd_terminate __attribute__ ((aligned (8))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
+#else
+typedef struct {
+	u32_t	r1;
+	u32_t 	r2;
+}BUFFER_DESC;
 
+BUFFER_DESC bd_space[XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC] __attribute__ ((aligned (0x10000))) __attribute__ ((section (".ps7_ram_1")));
 #endif
 static volatile u32_t bd_space_index = 0;
 static volatile u32_t bd_space_attr_set = 1;

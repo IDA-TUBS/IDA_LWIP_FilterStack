@@ -113,6 +113,7 @@ void ETH_PTPTime_UpdateOffset(struct ptptime_t * timeoffset);
 void ETH_SetPTPTimeStampAddend(uint32_t Value);
 void ETH_EnablePTPTimeStampAddend(void);
 void ETH_PTPTime_AdjFreq(int32_t Adj);
+void ETH_PTPTime_AdjOffset(int32_t Adj);
 void ETH_PTPTime_SetTime(struct ptptime_t * timestamp);
 void ETH_PTPTime_GetTime(struct ptptime_t* timestamp);
 
