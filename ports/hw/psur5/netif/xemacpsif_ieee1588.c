@@ -136,13 +136,20 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_NWCTRL_OFFSET, regVal | XEMACPS_NWCTRL_OSSM_MASK);
 
 	/*Enable PTP Sync Received Interrupt */
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_PTP_INT_SYNC_RX_MASK);
+	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPSRX_MASK);
 
 	/* Enable PTP Sync Transmitted Interrupt */
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_PTP_INT_SYNC_TX_MASK);
+	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPPSRX_MASK);
+
+	/* Enable PTP TSU Compare Interrupt */
+	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTP_CMP_MASK);
+
+#if XPAR_EMACPS_PPS_IRQ_ENABLE
+	/* Enable PTP Pulse Per Second IRQ */
+	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTP_PPS_MASK);
+#endif
 
 	XEmacPs_InitTsu();
-
 }
 
 
@@ -221,6 +228,22 @@ void ETH_PTPTime_SetTime(struct ptptime_t * timestamp) {
 	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_NSEC_REG_OFFSET, timestamp->tv_nsec);
 }
 
+/*****************************************************************************/
+/**
+*	Initialize time base
+*
+* @param Sign wether the Time is pos or neg.
+* 		 SecondsValue Seconds to be writen to the reg
+* 		 NanoSecondValue	Nseconds to be writen
+*
+* @return N/A
+*
+******************************************************************************/
+void ETH_PTPTime_SetCompare(uint32_t sec, uint32_t nsec) {
+
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_TSU_SEC_CMP_OFFSET, sec);
+	XEmacPs_WriteReg(XPAR_XEMACPS_BASEADDR, XEMACPS_TSU_NSEC_CMP_OFFSET, (nsec >> 8));
+}
 
 /*****************************************************************************/
 /**

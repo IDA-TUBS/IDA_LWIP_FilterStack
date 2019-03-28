@@ -43,6 +43,9 @@ extern "C" {
 #define NS_PER_SEC 1000000000ULL      /* Nanoseconds per second */
 #define FP_MULT    1000ULL
 
+#define XEMACPS_PTP_TSU_NSEC_CMP_OFFSET			0x000000DC				// PTP TSU Nanosecond Compare Register
+#define XEMACPS_PTP_TSU_SEC_CMP_OFFSET			0x000000E0				// PTP TSU Second Compare Register
+
 // PTP Capture Register
 #define XEMACPS_PTP_TSU_TX_SEC_OFFSET			0x000001E0				// PTP TSU Tx Seconds Capture Register Offset
 #define XEMACPS_PTP_TSU_TX_NSEC_OFFSET			0x000001E4				// PTP TSU Tx NSeconds Capture Register Offset
@@ -50,8 +53,8 @@ extern "C" {
 #define XEMACPS_PTP_TSU_RX_NSEC_OFFSET 			0x000001EC				// PTP TSU Rx NSeconds Capture Register Offset
 
 #define XEMACPS_NWCTRL_OSSM_MASK 				0x01000000				// One Step Sync
-#define XEMACPS_PTP_INT_SYNC_RX_MASK 			0x00080000				// Mask PTP Rx interrupts
-#define XEMACPS_PTP_INT_SYNC_TX_MASK 			0x00200000				// Mask PTP Tx interrupts
+//#define XEMACPS_PTP_INT_SYNC_RX_MASK 			0x00080000				// Mask PTP Rx interrupts
+//#define XEMACPS_PTP_INT_SYNC_TX_MASK 			0x00200000				// Mask PTP Tx interrupts
 
 /*
  * Timer Counter Register
