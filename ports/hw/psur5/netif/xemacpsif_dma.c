@@ -335,6 +335,10 @@ XStatus emacps_sgsend(xemacpsif_s *xemacpsif, struct pbuf *p)
 			Xil_DCacheFlushRange((UINTPTR)q->payload, (UINTPTR)q->len);
 		}
 
+#if defined (ARMR5)
+		if((UINTPTR)q->payload < 0x00040000)
+			q->payload += 0xFFE00000;
+#endif
 		XEmacPs_BdSetAddressTx(txbd, (UINTPTR)q->payload);
 
 #ifdef ZYNQMP_USE_JUMBO

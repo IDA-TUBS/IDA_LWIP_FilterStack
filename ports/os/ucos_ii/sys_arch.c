@@ -51,16 +51,25 @@
 #include "lwip/def.h"
 #include "lwip/sys.h"
 #include "lwip/mem.h"
+#include "lwip/stats.h"
 #include <string.h>
 
 #include "arch/cc.h"
 
 #define LWIP_SYS_ARCH_MBOX_SIZE					DEFAULT_MBOX_SIZE
-#define LWIP_SYS_ARCH_NUMBER_OF_MBOXES			20
+#define LWIP_SYS_ARCH_NUMBER_OF_MBOXES			10
 
 #define LWIP_SYS_ARCH_TOTAL_STACK_SIZE 2048
 
 #define LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES		20
+
+#if LWIP_STATS > 0 && SYS_STATS > 0
+#define LWIP_SYS_ARCH_STATS_INCR_ERR(STAT)		STAT##.err++;
+
+
+#else
+#define LWIP_SYS_ARCH_STATS_INCR_ERR(STAT)
+#endif
 
 struct sys_sem{
 	OS_EVENT *ossem;
@@ -118,6 +127,10 @@ void sys_init(void)
 	}
 	sys_arch_sem_space[LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES - 1].next = NULL;
 
+#if LWIP_STATS > 0 && SYS_STATS > 0
+	memset(&lwip_stats.sys,0,sizeof(struct stats_sys));
+#endif
+
 	LWIP_DEBUGF(SYS_DEBUG, ("sys_init done\n"));
 }
 /*
@@ -158,6 +171,7 @@ err_t sys_sem_new(struct sys_sem **sem, u8_t count)
 	CPU_SR cpu_sr;
 
 	if(sys_arch_sem_list == NULL){
+		SYS_STATS_INC(sem.err);
 		LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_mbox_new failed: Out of Semaphores"));
 		return ERR_MEM;
 	}
@@ -168,11 +182,14 @@ err_t sys_sem_new(struct sys_sem **sem, u8_t count)
 	OS_EXIT_CRITICAL();
 	semaphore->ossem = OSSemCreate(count);
 	if (semaphore->ossem == NULL){
+		SYS_STATS_INC(sem.err);
 		LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_mbox_new failed: Out of Semaphores (UCOS)"));
 		return ERR_MEM;
 	}
 
 	OSEventNameSet(semaphore->ossem,"lwip sysarch sem",&err);
+
+	SYS_STATS_INC_USED(sem);
 
 	*sem = semaphore;
 	LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_sem_new 0x%08x\n", semaphore->ossem));
@@ -199,6 +216,8 @@ void sys_sem_free(struct sys_sem **sem)
 	sys_arch_sem_list = semaphore;
 	sys_arch_sem_list->next = sys_arch_sem_list_tmp;
 	OS_EXIT_CRITICAL();
+
+	SYS_STATS_DEC(sem.used);
 
 	LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_sem_free 0x%08x\n", semaphore->ossem));
 }
@@ -270,10 +289,13 @@ err_t sys_mbox_new(struct sys_mbox **mbox, int size)
 	struct sys_mbox *messageBox;
 	CPU_SR cpu_sr;
 
-	if(size > LWIP_SYS_ARCH_MBOX_SIZE)
+	if(size > LWIP_SYS_ARCH_MBOX_SIZE){
+		SYS_STATS_INC(mbox.err);
 		return ERR_MEM;
+	}
 
 	if(sys_arch_mbox_list == NULL){
+		SYS_STATS_INC(mbox.err);
 		LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_mbox_new failed: Out of Message Boxes"));
 		return ERR_MEM;
 	}
@@ -286,10 +308,13 @@ err_t sys_mbox_new(struct sys_mbox **mbox, int size)
 
 	messageBox->osmbox = OSQCreate((void*) messageBox->mboxBuffer, size);
 	if (messageBox->osmbox == NULL){
+		SYS_STATS_INC(mbox.err);
 		LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_mbox_new failed: Out of Message Boxes (UCOS)"));
 		return ERR_MEM;
 	}
 	OSEventNameSet(messageBox->osmbox,"lwip sysarch mbox",&err);
+
+	SYS_STATS_INC_USED(mbox);
 
 	*mbox = messageBox;
 	LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_mbox_new 0x%08x\n", messageBox->osmbox));
@@ -317,6 +342,8 @@ void sys_mbox_free(struct sys_mbox ** mbox)
 	sys_arch_mbox_list = messageBox;
 	sys_arch_mbox_list->next = sys_arch_mbox_list_tmp;
 	OS_EXIT_CRITICAL();
+
+	SYS_STATS_DEC(mbox.used);
 
 	LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_mbox_free 0x%08x\n", messageBox->osmbox));
 }
