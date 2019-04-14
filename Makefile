@@ -35,7 +35,6 @@ CC := gcc
 AR := gcc-ar
 endif
 
-
 OBJECTS := $(LWIPNOAPPSFILES:$(LWIPDIR)/%.c=$(OBJDIR)/%.o)
 
 $(OBJECTS): $(OBJDIR)/%.o : $(LWIPDIR)/%.c

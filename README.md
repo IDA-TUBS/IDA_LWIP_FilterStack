@@ -17,5 +17,5 @@ source setp-tapif
 
 Test UDP Echo Server
 ```
-echo "test" | nc -u 192.168.0.200 2000
+echo "test" | nc -u 192.168.0.200 7
 ```
