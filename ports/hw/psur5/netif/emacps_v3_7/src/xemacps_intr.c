@@ -180,7 +180,7 @@ void XEmacPs_IntrHandler(void *XEmacPsPtr)
 #if XPAR_EMACPS_TSU_ENABLE
 	/* PTP TSU Compare Interrupt*/
 	if((RegISR & XEMACPS_IXR_PTP_CMP_MASK) != 0x00000000U) {
-		ILM_HW_Isr_Master();
+		asm volatile("nop");
 	}
 
 	/* Pulse per second IRQ */
