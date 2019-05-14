@@ -44,10 +44,10 @@
 #define LWIP_NETCONN               (NO_SYS==0)
 #define LWIP_NETIF_API             (NO_SYS==0)
 
-#define LWIP_IGMP                  LWIP_IPV4
-#define LWIP_ICMP                  LWIP_IPV4
+#define LWIP_IGMP                  0//LWIP_IPV4
+#define LWIP_ICMP                  0//LWIP_IPV4
 
-#define LWIP_SNMP                  LWIP_UDP
+#define LWIP_SNMP                  0//LWIP_UDP
 #define MIB2_STATS                 LWIP_SNMP
 #ifdef LWIP_HAVE_MBEDTLS
 #define LWIP_SNMP_V3               (LWIP_SNMP)
@@ -223,15 +223,15 @@ a lot of data that needs to be copied, this should be set high. */
 /* Define IP_FORWARD to 1 if you wish to have the ability to forward
    IP packets across network interfaces. If you are going to run lwIP
    on a device with only one network interface, define this to 0. */
-#define IP_FORWARD              1
+#define IP_FORWARD              0//1
 
 /* IP reassembly and segmentation.These are orthogonal even
  * if they both deal with IP fragments */
-#define IP_REASSEMBLY           1
+#define IP_REASSEMBLY           0//1
 #define IP_REASS_MAX_PBUFS      (10 * ((1500 + PBUF_POOL_BUFSIZE - 1) / PBUF_POOL_BUFSIZE))
 #define MEMP_NUM_REASSDATA      IP_REASS_MAX_PBUFS
-#define IP_FRAG                 1
-#define IPV6_FRAG_COPYHEADER    1
+#define IP_FRAG                 0//1
+#define IPV6_FRAG_COPYHEADER    0//1
 
 /* ---------- ICMP options ---------- */
 #define ICMP_TTL                255

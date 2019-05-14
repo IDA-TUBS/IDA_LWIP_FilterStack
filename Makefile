@@ -1,12 +1,18 @@
 OS=ucos-ii
 CPU=psur5
+VER=restruct
 
 LWIPOPTSDIR=./
 OBJDIR := ./obj
 LIBDIR := ./lib
-LIB = $(LIBDIR)/liblwipcore_$(OS)_$(CPU).a
+LIB = $(LIBDIR)/liblwipcore_$(OS)_$(CPU)_$(VER).a
 
+ifeq ($(VER),restruct)
+LWIPDIR = ./ida-lwip-2.1.2/src
+else
 LWIPDIR = ./lwip-2.1.2/src
+endif
+
 -include $(LWIPDIR)/Filelists.mk
 
 INC = -I$(LWIPDIR)/include -I $(LWIPOPTSDIR)

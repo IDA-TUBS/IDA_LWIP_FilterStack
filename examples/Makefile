@@ -1,4 +1,5 @@
 CC=gcc
+VER=restruct
 
 SRCDIR = ./src
 INCDIR = ./include
@@ -18,7 +19,12 @@ OBJ = $(SOURCES:%.c=%.o)
 
 TARGET = example
 
-LDFLAGS+=-lutil -lpthread -llwipcore_unix_none
+ifeq ($(VER),restruct)
+LDFLAGS+=-lutil -lpthread -llwipcore_unix_none_restruct
+else
+LDFLAGS+=-lutil -lpthread -llwipcore_unix_none_normal
+endif
+
 CFLAGS= -Wall -g3 -pthread
 
 INC= -I ./ \
