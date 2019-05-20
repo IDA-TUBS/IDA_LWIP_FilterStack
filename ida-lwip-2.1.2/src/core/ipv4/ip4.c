@@ -621,8 +621,9 @@ ip4_input(struct pbuf *p, struct netif *inp)
 #if IP_FORWARD
     /* non-broadcast packet? */
     if (!ip4_addr_isbroadcast(ip4_current_dest_addr(), inp)) {
-      /* try to forward IP packet on (other) interfaces */
-      ip4_forward(p, (struct ip_hdr *)p->payload, inp);
+      goto not_for_us;
+//      /* try to forward IP packet on (other) interfaces */
+//      ip4_forward(p, (struct ip_hdr *)p->payload, inp);
     } else
 #endif /* IP_FORWARD */
     {
@@ -638,13 +639,14 @@ ip4_input(struct pbuf *p, struct netif *inp)
 #if IP_REASSEMBLY /* packet fragment reassembly code present? */
     LWIP_DEBUGF(IP_DEBUG, ("IP packet is a fragment (id=0x%04"X16_F" tot_len=%"U16_F" len=%"U16_F" MF=%"U16_F" offset=%"U16_F"), calling ip4_reass()\n",
                            lwip_ntohs(IPH_ID(iphdr)), p->tot_len, lwip_ntohs(IPH_LEN(iphdr)), (u16_t)!!(IPH_OFFSET(iphdr) & PP_HTONS(IP_MF)), (u16_t)((lwip_ntohs(IPH_OFFSET(iphdr)) & IP_OFFMASK) * 8)));
-    /* reassemble the packet*/
-    p = ip4_reass(p);
-    /* packet not fully reassembled yet? */
-    if (p == NULL) {
-      return ERR_OK;
-    }
-    iphdr = (const struct ip_hdr *)p->payload;
+    goto not_for_us;
+//    /* reassemble the packet*/
+//    p = ip4_reass(p);
+//    /* packet not fully reassembled yet? */
+//    if (p == NULL) {
+//      return ERR_OK;
+//    }
+//    iphdr = (const struct ip_hdr *)p->payload;
 #else /* IP_REASSEMBLY == 0, no packet fragment reassembly code present */
     pbuf_free(p);
     LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("IP packet dropped since it was fragmented (0x%"X16_F") (while IP_REASSEMBLY == 0).\n",
@@ -703,23 +705,23 @@ ip4_input(struct pbuf *p, struct netif *inp)
         udp_input(p, inp);
         break;
 #endif /* LWIP_UDP */
-#if LWIP_TCP
-      case IP_PROTO_TCP:
-        MIB2_STATS_INC(mib2.ipindelivers);
-        tcp_input(p, inp);
-        break;
-#endif /* LWIP_TCP */
-#if LWIP_ICMP
-      case IP_PROTO_ICMP:
-        MIB2_STATS_INC(mib2.ipindelivers);
-        icmp_input(p, inp);
-        break;
-#endif /* LWIP_ICMP */
-#if LWIP_IGMP
-      case IP_PROTO_IGMP:
-        igmp_input(p, inp, ip4_current_dest_addr());
-        break;
-#endif /* LWIP_IGMP */
+//#if LWIP_TCP
+//      case IP_PROTO_TCP:
+//        MIB2_STATS_INC(mib2.ipindelivers);
+//        tcp_input(p, inp);
+//        break;
+//#endif /* LWIP_TCP */
+//#if LWIP_ICMP
+//      case IP_PROTO_ICMP:
+//        MIB2_STATS_INC(mib2.ipindelivers);
+//        icmp_input(p, inp);
+//        break;
+//#endif /* LWIP_ICMP */
+//#if LWIP_IGMP
+//      case IP_PROTO_IGMP:
+//        igmp_input(p, inp, ip4_current_dest_addr());
+//        break;
+//#endif /* LWIP_IGMP */
       default:
 #if LWIP_RAW
         if (raw_status == RAW_INPUT_DELIVERED) {
@@ -743,6 +745,9 @@ ip4_input(struct pbuf *p, struct netif *inp)
           MIB2_STATS_INC(mib2.ipinunknownprotos);
         }
         pbuf_free(p);
+
+        goto not_for_us;
+
         break;
     }
   }
@@ -756,6 +761,9 @@ ip4_input(struct pbuf *p, struct netif *inp)
   ip4_addr_set_any(ip4_current_dest_addr());
 
   return ERR_OK;
+
+not_for_us:
+	return ERR_NOTUS;
 }
 
 /**

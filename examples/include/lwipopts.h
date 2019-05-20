@@ -36,8 +36,12 @@
 #include "lwipopts_test.h"
 #else /* LWIP_OPTTEST_FILE */
 
+#define CUSTOM_PBUF				   1
+#define LWIP_SUPPORT_CUSTOM_PBUF   1
+
 #define LWIP_IPV4                  1
 #define LWIP_IPV6                  0
+#define ETHARP_SUPPORT_VLAN		   1
 
 #define NO_SYS                     0
 #define LWIP_SOCKET                (NO_SYS==0)
@@ -223,11 +227,11 @@ a lot of data that needs to be copied, this should be set high. */
 /* Define IP_FORWARD to 1 if you wish to have the ability to forward
    IP packets across network interfaces. If you are going to run lwIP
    on a device with only one network interface, define this to 0. */
-#define IP_FORWARD              0//1
+#define IP_FORWARD              1
 
 /* IP reassembly and segmentation.These are orthogonal even
  * if they both deal with IP fragments */
-#define IP_REASSEMBLY           0//1
+#define IP_REASSEMBLY           1
 #define IP_REASS_MAX_PBUFS      (10 * ((1500 + PBUF_POOL_BUFSIZE - 1) / PBUF_POOL_BUFSIZE))
 #define MEMP_NUM_REASSDATA      IP_REASS_MAX_PBUFS
 #define IP_FRAG                 0//1
@@ -259,7 +263,7 @@ a lot of data that needs to be copied, this should be set high. */
 
 
 /* ---------- RAW options ---------- */
-#define LWIP_RAW                1
+#define LWIP_RAW                0
 
 
 /* ---------- Statistics options ---------- */
