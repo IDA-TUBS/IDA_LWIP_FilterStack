@@ -56,6 +56,7 @@
 #include "netif/ppp/pppoe.h"
 #endif /* PPPOE_SUPPORT */
 
+
 #ifdef LWIP_HOOK_FILENAME
 #include LWIP_HOOK_FILENAME
 #endif
@@ -191,29 +192,30 @@ ethernet_input(struct pbuf *p, struct netif *netif)
       if (!(netif->flags & NETIF_FLAG_ETHARP)) {
         goto free_and_return;
       }
-
-    	goto not_for_us;
-//      /* skip Ethernet header (min. size checked above) */
-//      if (pbuf_remove_header(p, next_hdr_offset)) {
-//        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
-//                    ("ethernet_input: ARP response packet dropped, too short (%"U16_F"/%"U16_F")\n",
-//                     p->tot_len, next_hdr_offset));
-//        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("Can't move over header in packet"));
-//        ETHARP_STATS_INC(etharp.lenerr);
-//        ETHARP_STATS_INC(etharp.drop);
-//        goto free_and_return;
-//      } else {
-//        /* pass p to ARP module */
-//        etharp_input(p, netif);
-//      }
+        LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet:  ARP\n"));
+    	//goto not_for_us;
+      /* skip Ethernet header (min. size checked above) */
+      if (pbuf_remove_header(p, next_hdr_offset)) {
+        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
+                    ("ethernet_input: ARP response packet dropped, too short (%"U16_F"/%"U16_F")\n",
+                     p->tot_len, next_hdr_offset));
+        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("Can't move over header in packet"));
+        ETHARP_STATS_INC(etharp.lenerr);
+        ETHARP_STATS_INC(etharp.drop);
+        goto free_and_return;
+      } else {
+        /* pass p to ARP module */
+        etharp_input(p, netif);
+      }
       break;
 #endif /* LWIP_IPV4 && LWIP_ARP */
 
 #if LWIP_IPV6
     case PP_HTONS(ETHTYPE_IPV6): /* IPv6 */
 
+		LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n weil IP6"));
 		goto not_for_us;
-
+//
 //      /* skip Ethernet header */
 //      if ((p->len < next_hdr_offset) || pbuf_remove_header(p, next_hdr_offset)) {
 //        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
@@ -241,9 +243,17 @@ ethernet_input(struct pbuf *p, struct netif *netif)
 
   /* This means the pbuf is freed or consumed,
      so the caller doesn't have to free it again */
+  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_OK\n"));
   return ERR_OK;
 
 not_for_us:
+//  my_custom_pbuf_t* custom_buf = (my_custom_pbuf_t*)p;
+//  custom_buf->owned_by_classic = true;
+//  increase_obc_cnt();
+//  dummy_to_classic_stack(p);
+  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n"));
+  pbuf_free(p);
+  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: DROPPED\n"));
   return ERR_NOTUS;
 
 free_and_return:

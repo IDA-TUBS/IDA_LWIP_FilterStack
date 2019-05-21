@@ -198,7 +198,7 @@ etharp_tmr(void)
 {
   int i;
 
-  LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer\n"));
+//  LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer\n"));
   /* remove expired entries from the ARP table */
   for (i = 0; i < ARP_TABLE_SIZE; ++i) {
     u8_t state = arp_table[i].state;
@@ -701,36 +701,39 @@ etharp_input(struct pbuf *p, struct netif *netif)
       /* ARP request. If it asked for our address, we send out a
        * reply. In any case, we time-stamp any existing ARP entry,
        * and possibly send out an IP packet that was queued on it. */
+		LWIP_DEBUGF (ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP request DROPPED\n"));
 
-      LWIP_DEBUGF (ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP request\n"));
-      /* ARP request for our address? */
-      if (for_us) {
-        /* send ARP response */
-        etharp_raw(netif,
-                   (struct eth_addr *)netif->hwaddr, &hdr->shwaddr,
-                   (struct eth_addr *)netif->hwaddr, netif_ip4_addr(netif),
-                   &hdr->shwaddr, &sipaddr,
-                   ARP_REPLY);
-        /* we are not configured? */
-      } else if (ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-        /* { for_us == 0 and netif->ip_addr.addr == 0 } */
-        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: we are unconfigured, ARP request ignored.\n"));
-        /* request was not directed to us */
-      } else {
-        /* { for_us == 0 and netif->ip_addr.addr != 0 } */
-        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP request was not for us.\n"));
-      }
+//
+//      LWIP_DEBUGF (ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP request\n"));
+//      /* ARP request for our address? */
+//      if (for_us) {
+//        /* send ARP response */
+//        etharp_raw(netif,
+//                   (struct eth_addr *)netif->hwaddr, &hdr->shwaddr,
+//                   (struct eth_addr *)netif->hwaddr, netif_ip4_addr(netif),
+//                   &hdr->shwaddr, &sipaddr,
+//                   ARP_REPLY);
+//        /* we are not configured? */
+//      } else if (ip4_addr_isany_val(*netif_ip4_addr(netif))) {
+//        /* { for_us == 0 and netif->ip_addr.addr == 0 } */
+//        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: we are unconfigured, ARP request ignored.\n"));
+//        /* request was not directed to us */
+//      } else {
+//        /* { for_us == 0 and netif->ip_addr.addr != 0 } */
+//        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP request was not for us.\n"));
+//      }
       break;
     case PP_HTONS(ARP_REPLY):
       /* ARP reply. We already updated the ARP cache earlier. */
-      LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP reply\n"));
-#if (LWIP_DHCP && DHCP_DOES_ARP_CHECK)
-      /* DHCP wants to know about ARP replies from any host with an
-       * IP address also offered to us by the DHCP server. We do not
-       * want to take a duplicate IP address on a single network.
-       * @todo How should we handle redundant (fail-over) interfaces? */
-      dhcp_arp_reply(netif, &sipaddr);
-#endif /* (LWIP_DHCP && DHCP_DOES_ARP_CHECK) */
+		LWIP_DEBUGF (ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP replay DROPPED\n"));
+//      LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP reply\n"));
+//#if (LWIP_DHCP && DHCP_DOES_ARP_CHECK)
+//      /* DHCP wants to know about ARP replies from any host with an
+//       * IP address also offered to us by the DHCP server. We do not
+//       * want to take a duplicate IP address on a single network.
+//       * @todo How should we handle redundant (fail-over) interfaces? */
+//      dhcp_arp_reply(netif, &sipaddr);
+//#endif /* (LWIP_DHCP && DHCP_DOES_ARP_CHECK) */
       break;
     default:
       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP unknown opcode type %"S16_F"\n", lwip_htons(hdr->opcode)));

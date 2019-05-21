@@ -109,6 +109,7 @@
 #define TCP_FR_DEBUG               LWIP_DBG_OFF
 #define TCP_QLEN_DEBUG             LWIP_DBG_OFF
 #define TCP_RST_DEBUG              LWIP_DBG_OFF
+#define ETHARP_DEBUG               LWIP_DBG_ON
 #endif
 
 #define LWIP_DBG_TYPES_ON         (LWIP_DBG_ON|LWIP_DBG_TRACE|LWIP_DBG_STATE|LWIP_DBG_FRESH|LWIP_DBG_HALT)
@@ -178,7 +179,7 @@ a lot of data that needs to be copied, this should be set high. */
 
 
 /* ---------- TCP options ---------- */
-#define LWIP_TCP                1
+#define LWIP_TCP                0
 #define TCP_TTL                 255
 
 #define LWIP_ALTCP              (LWIP_TCP)

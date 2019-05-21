@@ -705,23 +705,29 @@ ip4_input(struct pbuf *p, struct netif *inp)
         udp_input(p, inp);
         break;
 #endif /* LWIP_UDP */
-//#if LWIP_TCP
-//      case IP_PROTO_TCP:
-//        MIB2_STATS_INC(mib2.ipindelivers);
+#if LWIP_TCP
+      case IP_PROTO_TCP:
+        MIB2_STATS_INC(mib2.ipindelivers);
 //        tcp_input(p, inp);
-//        break;
-//#endif /* LWIP_TCP */
-//#if LWIP_ICMP
-//      case IP_PROTO_ICMP:
-//        MIB2_STATS_INC(mib2.ipindelivers);
+        LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil TCP\n"));
+        goto not_for_us;
+        break;
+#endif /* LWIP_TCP */
+#if LWIP_ICMP
+      case IP_PROTO_ICMP:
+        MIB2_STATS_INC(mib2.ipindelivers);
 //        icmp_input(p, inp);
-//        break;
-//#endif /* LWIP_ICMP */
-//#if LWIP_IGMP
-//      case IP_PROTO_IGMP:
+        LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil ICMP\n"));
+		goto not_for_us;
+        break;
+#endif /* LWIP_ICMP */
+#if LWIP_IGMP
+      case IP_PROTO_IGMP:
 //        igmp_input(p, inp, ip4_current_dest_addr());
-//        break;
-//#endif /* LWIP_IGMP */
+    	LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil IGMP\n"));
+		goto not_for_us;
+        break;
+#endif /* LWIP_IGMP */
       default:
 #if LWIP_RAW
         if (raw_status == RAW_INPUT_DELIVERED) {
@@ -746,6 +752,12 @@ ip4_input(struct pbuf *p, struct netif *inp)
         }
         pbuf_free(p);
 
+        if (IPH_PROTO(iphdr)==IP_PROTO_ICMP){
+        	LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil ICMP\n"));
+        }
+        else{
+        	LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil DEFAULT\n"));
+        }
         goto not_for_us;
 
         break;
@@ -763,6 +775,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
   return ERR_OK;
 
 not_for_us:
+	LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS\n"));
 	return ERR_NOTUS;
 }
 
