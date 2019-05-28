@@ -1,4 +1,6 @@
 lib/
 obj/
 examples/example
+*.cproject
+*.project
 *.o
