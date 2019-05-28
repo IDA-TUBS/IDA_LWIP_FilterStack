@@ -38,6 +38,8 @@
 
 #define CUSTOM_PBUF				   1
 #define LWIP_SUPPORT_CUSTOM_PBUF   1
+#define	ETHARP_SUPPORT_STATIC_ENTRIES   1
+#define ARP_TIMER				   0
 
 #define LWIP_IPV4                  1
 #define LWIP_IPV6                  0
@@ -57,7 +59,7 @@
 #define LWIP_SNMP_V3               (LWIP_SNMP)
 #endif
 
-#define LWIP_DNS                   LWIP_UDP
+#define LWIP_DNS                   0//LWIP_UDP
 #define LWIP_MDNS_RESPONDER        LWIP_UDP
 
 #define LWIP_NUM_NETIF_CLIENT_DATA (LWIP_MDNS_RESPONDER)
@@ -245,7 +247,7 @@ a lot of data that needs to be copied, this should be set high. */
 /* ---------- DHCP options ---------- */
 /* Define LWIP_DHCP to 1 if you want DHCP configuration of
    interfaces. */
-#define LWIP_DHCP               LWIP_UDP
+#define LWIP_DHCP               0//LWIP_UDP
 
 /* 1 if you want to do an ARP check on the offered address
    (recommended). */
