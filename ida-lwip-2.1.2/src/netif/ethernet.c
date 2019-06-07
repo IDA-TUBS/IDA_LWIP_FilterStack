@@ -194,7 +194,7 @@ ethernet_input(struct pbuf *p, struct netif *netif)
       }
         LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet:  ARP\n"));
     	goto not_for_us;
-      /* skip Ethernet header (min. size checked above) */
+//      /* skip Ethernet header (min. size checked above) */
 //      if (pbuf_remove_header(p, next_hdr_offset)) {
 //        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
 //                    ("ethernet_input: ARP response packet dropped, too short (%"U16_F"/%"U16_F")\n",
@@ -252,7 +252,7 @@ not_for_us:
 //  increase_obc_cnt();
 //  dummy_to_classic_stack(p);
   LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n"));
-//  pbuf_free(p);
+  pbuf_free(p);
   LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: DROPPED\n"));
   return ERR_NOTUS;
 

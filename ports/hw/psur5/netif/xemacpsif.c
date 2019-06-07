@@ -269,7 +269,7 @@ s32_t xemacpsif_input(struct netif *netif)
 			case ETHTYPE_PPPOE:
 	#endif /* PPPOE_SUPPORT */
 				/* full packet send to tcpip_thread to process */
-				if (netif->input(p, netif) != ERR_OK) {
+				if (netif->input(p, netif) != ERR_OK || ERR_NOTUS) {
 					LWIP_DEBUGF(NETIF_DEBUG, ("xemacpsif_input: IP input error\r\n"));
 					pbuf_free(p);
 					p = NULL;
