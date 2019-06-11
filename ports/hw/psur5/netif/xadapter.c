@@ -67,6 +67,10 @@
 #include "lwip/tcpip.h"
 #endif
 
+#ifdef IDA_LWIP
+struct netif *ida_netif = NULL;
+#endif
+
 
 /* global lwip debug variable used for debugging */
 int lwip_runtime_debug = 0;
@@ -130,6 +134,11 @@ xemac_add(struct netif *netif,
 	for (i = 0; i < 6; i++)
 		netif->hwaddr[i] = mac_ethernet_address[i];
 
+#ifdef IDA_LWIP
+	ida_netif = netif;
+	return netif_add(netif, ipaddr, netmask, gw,(void*)(UINTPTR)mac_baseaddr,xemacpsif_init,NULL);
+#else
+
 	/* initialize based on MAC type */
 		switch (find_mac_type(mac_baseaddr)) {
 			case xemac_type_xps_emaclite:
@@ -180,8 +189,14 @@ xemac_add(struct netif *netif,
 						mac_baseaddr);
 				return NULL;
 	}
+#endif
 }
 
+#ifdef IDA_LWIP
+void	ida_lwip_input(struct pbuf *p){
+	ethernet_input(p,ida_netif);
+}
+#else
 #if !NO_SYS
 /*
  * The input thread calls lwIP to process any received packets.
@@ -250,3 +265,4 @@ xemacif_input(struct netif *netif)
 
 	return n_packets;
 }
+#endif

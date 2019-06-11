@@ -523,6 +523,10 @@ void emacps_recv_handler(void *arg)
 			/* store it in the receive queue,
 			 * where it'll be processed by a different handler
 			 */
+#ifdef IDA_LWIP
+			ida_lwip_input(p);
+#else
+
 			if (pq_enqueue(xemacpsif->recv_q, (void*)p) < 0) {
 #if LINK_STATS
 				lwip_stats.link.memerr++;
@@ -530,13 +534,16 @@ void emacps_recv_handler(void *arg)
 #endif
 				pbuf_free(p);
 			}
+#endif
 			curbdptr = XEmacPs_BdRingNext( rxring, curbdptr);
 		}
 		/* free up the BD's */
 		XEmacPs_BdRingFree(rxring, bd_processed, rxbdset);
 		setup_rx_bds(xemacpsif, rxring);
+#ifndef IDA_LWIP
 #if !NO_SYS
 		sys_sem_signal(&xemac->sem_rx_data_available);
+#endif
 #endif
 	}
 

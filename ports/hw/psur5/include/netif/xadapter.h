@@ -77,6 +77,10 @@ void xemacpsif_resetrx_on_no_rxdata(struct netif *netif);
 /* global lwip debug variable used for debugging */
 extern int lwip_runtime_debug;
 
+#ifdef IDA_LWIP
+void	ida_lwip_input(struct pbuf *p);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
