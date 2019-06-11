@@ -16,6 +16,17 @@
 #define IDA_FILTER_MBOX_SIZE 8
 #define MBOX_SEM_TIMEOUT 0 //wait forever
 
+typedef struct{
+	sys_mbox_t mbox;
+	u8_t count;
+}IDA_LWIP_FILTER_MBOX;
+
+typedef struct{
+	IDA_LWIP_FILTER_MBOX filter_mbox[8];
+	u8_t prio_field;
+	sys_sem_t act_sem;
+}IDA_LWIP_FILTER_QUEUE;
+
 err_t ida_filter_enqueue_pkt(struct pbuf *p, u8_t prio);
 void ida_filter_init(struct netif *netif);
 

@@ -64,6 +64,8 @@
 const struct eth_addr ethbroadcast = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
 const struct eth_addr ethzero = {{0, 0, 0, 0, 0, 0}};
 
+#include "ida-lwip/ida_lwip_filter.h"
+
 /**
  * @ingroup lwip_nosys
  * Process received ethernet frames. Using this function instead of directly
@@ -165,7 +167,7 @@ ethernet_input(struct pbuf *p, struct netif *netif)
         return ERR_OK;
       } else {
         /* pass to IP layer */
-        ip4_input(p, netif);
+    	ida_filter_enqueue_pkt(p, prio);
         return ERR_OK;
       }
       break;
