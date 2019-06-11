@@ -83,18 +83,16 @@ ethernet_input(struct pbuf *p, struct netif *netif)
 {
   struct eth_hdr *ethhdr;
   u16_t type;
-#if LWIP_ARP || ETHARP_SUPPORT_VLAN || LWIP_IPV6
   u16_t next_hdr_offset = SIZEOF_ETH_HDR;
-#endif /* LWIP_ARP || ETHARP_SUPPORT_VLAN */
-
-  LWIP_ASSERT_CORE_LOCKED();
+  u8_t prio = 0;
 
   if (p->len <= SIZEOF_ETH_HDR) {
     /* a packet with only an ethernet header (or less) is not valid for us */
     ETHARP_STATS_INC(etharp.proterr);
     ETHARP_STATS_INC(etharp.drop);
     MIB2_STATS_NETIF_INC(netif, ifinerrors);
-    goto free_and_return;
+    pbuf_free(p);
+    return ERR_OK;
   }
 
   if (p->if_idx == NETIF_NO_INDEX) {
@@ -112,6 +110,7 @@ ethernet_input(struct pbuf *p, struct netif *netif)
                lwip_htons(ethhdr->type)));
 
   type = ethhdr->type;
+
 #if ETHARP_SUPPORT_VLAN
   if (type == PP_HTONS(ETHTYPE_VLAN)) {
     struct eth_vlan_hdr *vlan = (struct eth_vlan_hdr *)(((char *)ethhdr) + SIZEOF_ETH_HDR);
@@ -121,28 +120,13 @@ ethernet_input(struct pbuf *p, struct netif *netif)
       ETHARP_STATS_INC(etharp.proterr);
       ETHARP_STATS_INC(etharp.drop);
       MIB2_STATS_NETIF_INC(netif, ifinerrors);
-      goto free_and_return;
-    }
-#if defined(LWIP_HOOK_VLAN_CHECK) || defined(ETHARP_VLAN_CHECK) || defined(ETHARP_VLAN_CHECK_FN) /* if not, allow all VLANs */
-#ifdef LWIP_HOOK_VLAN_CHECK
-    if (!LWIP_HOOK_VLAN_CHECK(netif, ethhdr, vlan)) {
-#elif defined(ETHARP_VLAN_CHECK_FN)
-    if (!ETHARP_VLAN_CHECK_FN(ethhdr, vlan)) {
-#elif defined(ETHARP_VLAN_CHECK)
-    if (VLAN_ID(vlan) != ETHARP_VLAN_CHECK) {
-#endif
-      /* silently ignore this packet: not for our VLAN */
       pbuf_free(p);
-      return ERR_OK;
+	  return ERR_OK;
     }
-#endif /* defined(LWIP_HOOK_VLAN_CHECK) || defined(ETHARP_VLAN_CHECK) || defined(ETHARP_VLAN_CHECK_FN) */
     type = vlan->tpid;
+    prio = VLAN_PRIO(vlan);
   }
 #endif /* ETHARP_SUPPORT_VLAN */
-
-#if LWIP_ARP_FILTER_NETIF
-  netif = LWIP_ARP_FILTER_NETIF_FN(p, netif, lwip_htons(type));
-#endif /* LWIP_ARP_FILTER_NETIF*/
 
   if (ethhdr->dest.addr[0] & 1) {
     /* this might be a multicast or broadcast packet */
@@ -169,96 +153,32 @@ ethernet_input(struct pbuf *p, struct netif *netif)
   }
 
   switch (type) {
-#if LWIP_IPV4 && LWIP_ARP
     /* IP packet? */
     case PP_HTONS(ETHTYPE_IP):
-      if (!(netif->flags & NETIF_FLAG_ETHARP)) {
-        goto free_and_return;
-      }
       /* skip Ethernet header (min. size checked above) */
       if (pbuf_remove_header(p, next_hdr_offset)) {
         LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
                     ("ethernet_input: IPv4 packet dropped, too short (%"U16_F"/%"U16_F")\n",
                      p->tot_len, next_hdr_offset));
         LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("Can't move over header in packet"));
-        goto free_and_return;
+        pbuf_free(p);
+        return ERR_OK;
       } else {
         /* pass to IP layer */
         ip4_input(p, netif);
+        return ERR_OK;
       }
       break;
-
-    case PP_HTONS(ETHTYPE_ARP):
-      if (!(netif->flags & NETIF_FLAG_ETHARP)) {
-        goto free_and_return;
-      }
-        LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet:  ARP\n"));
-    	goto not_for_us;
-//      /* skip Ethernet header (min. size checked above) */
-//      if (pbuf_remove_header(p, next_hdr_offset)) {
-//        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
-//                    ("ethernet_input: ARP response packet dropped, too short (%"U16_F"/%"U16_F")\n",
-//                     p->tot_len, next_hdr_offset));
-//        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("Can't move over header in packet"));
-//        ETHARP_STATS_INC(etharp.lenerr);
-//        ETHARP_STATS_INC(etharp.drop);
-//        goto free_and_return;
-//      } else {
-//        /* pass p to ARP module */
-//        etharp_input(p, netif);
-//      }
-      break;
-#endif /* LWIP_IPV4 && LWIP_ARP */
-
-#if LWIP_IPV6
-    case PP_HTONS(ETHTYPE_IPV6): /* IPv6 */
-
-		LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n weil IP6"));
-		goto not_for_us;
-//
-//      /* skip Ethernet header */
-//      if ((p->len < next_hdr_offset) || pbuf_remove_header(p, next_hdr_offset)) {
-//        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
-//                    ("ethernet_input: IPv6 packet dropped, too short (%"U16_F"/%"U16_F")\n",
-//                     p->tot_len, next_hdr_offset));
-//        goto free_and_return;
-//      } else {
-//        /* pass to IPv6 layer */
-//        ip6_input(p, netif);
-//      }
-      break;
-#endif /* LWIP_IPV6 */
-
     default:
-#ifdef LWIP_HOOK_UNKNOWN_ETH_PROTOCOL
-      if (LWIP_HOOK_UNKNOWN_ETH_PROTOCOL(p, netif) == ERR_OK) {
-        break;
-      }
-#endif
-      ETHARP_STATS_INC(etharp.proterr);
-      ETHARP_STATS_INC(etharp.drop);
-      MIB2_STATS_NETIF_INC(netif, ifinunknownprotos);
-      goto not_for_us;
-  }
-
-  /* This means the pbuf is freed or consumed,
-     so the caller doesn't have to free it again */
-  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_OK\n"));
-  return ERR_OK;
-
-not_for_us:
 //  my_custom_pbuf_t* custom_buf = (my_custom_pbuf_t*)p;
 //  custom_buf->owned_by_classic = true;
 //  increase_obc_cnt();
 //  dummy_to_classic_stack(p);
-  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n"));
-  pbuf_free(p);
-  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: DROPPED\n"));
-  return ERR_NOTUS;
-
-free_and_return:
-  pbuf_free(p);
-  return ERR_OK;
+	  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n"));
+	  pbuf_free(p);
+	  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: DROPPED\n"));
+	  return ERR_OK;
+  }
 }
 
 /**

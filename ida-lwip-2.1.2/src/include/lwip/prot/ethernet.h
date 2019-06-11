@@ -106,6 +106,7 @@ PACK_STRUCT_END
 
 #define SIZEOF_VLAN_HDR 4
 #define VLAN_ID(vlan_hdr) (lwip_htons((vlan_hdr)->prio_vid) & 0xFFF)
+#define VLAN_PRIO(vlan_hdr) ((lwip_htons((vlan_hdr)->prio_vid) & 0xE000 >> 13))
 
 /** The 24-bit IANA IPv4-multicast OUI is 01-00-5e: */
 #define LL_IP4_MULTICAST_ADDR_0 0x01
