@@ -705,22 +705,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
         udp_input(p, inp);
         break;
 #endif /* LWIP_UDP */
-#if LWIP_TCP
-      case IP_PROTO_TCP:
-        MIB2_STATS_INC(mib2.ipindelivers);
-//        tcp_input(p, inp);
-        LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil TCP\n"));
-        goto not_for_us;
-        break;
-#endif /* LWIP_TCP */
-#if LWIP_ICMP
-      case IP_PROTO_ICMP:
-        MIB2_STATS_INC(mib2.ipindelivers);
-//        icmp_input(p, inp);
-        LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil ICMP\n"));
-		goto not_for_us;
-        break;
-#endif /* LWIP_ICMP */
+
 #if LWIP_IGMP
       case IP_PROTO_IGMP:
 //        igmp_input(p, inp, ip4_current_dest_addr());
@@ -729,35 +714,15 @@ ip4_input(struct pbuf *p, struct netif *inp)
         break;
 #endif /* LWIP_IGMP */
       default:
-#if LWIP_RAW
-        if (raw_status == RAW_INPUT_DELIVERED) {
-          MIB2_STATS_INC(mib2.ipindelivers);
-        } else
-#endif /* LWIP_RAW */
         {
-#if LWIP_ICMP
-          /* send ICMP destination protocol unreachable unless is was a broadcast */
-          if (!ip4_addr_isbroadcast(ip4_current_dest_addr(), netif) &&
-              !ip4_addr_ismulticast(ip4_current_dest_addr())) {
-            pbuf_header_force(p, (s16_t)iphdr_hlen); /* Move to ip header, no check necessary. */
-            icmp_dest_unreach(p, ICMP_DUR_PROTO);
-          }
-#endif /* LWIP_ICMP */
-
           LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("Unsupported transport protocol %"U16_F"\n", (u16_t)IPH_PROTO(iphdr)));
-
           IP_STATS_INC(ip.proterr);
           IP_STATS_INC(ip.drop);
           MIB2_STATS_INC(mib2.ipinunknownprotos);
         }
         pbuf_free(p);
 
-        if (IPH_PROTO(iphdr)==IP_PROTO_ICMP){
-        	LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil ICMP\n"));
-        }
-        else{
-        	LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil DEFAULT\n"));
-        }
+        LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil DEFAULT\n"));
         goto not_for_us;
 
         break;

@@ -13,27 +13,21 @@
 
 static sys_mbox_t ida_filter_mbox[8];	// 8 mboxes for each vlan prio
 sys_sem_t mbox_sem;						// semaphore to signal that a packet was queued in one of the 8 mboxes
-u8_t mbox_status[8];					// packet status of mboxes:
-										// 2 packets of prio 1, rest empty -> mbox_status = {0, 2, 0, 0, 0, 0, 0, 0}
 
 struct netif *netif_local;				// local save of netif, is needed to call ip4_input
 
-
-/*
- * just a way of setting the local netif variable
- * */
-void ida_filter_set_netif(struct netif *netif){
-	netif_local = netif;
-}
+static void _ida_filter_thread(void* p_arg);
 
 /*
  * initialization of the 8 mboxes
  * */
-void ida_filter_mbox_init(){
-
+void ida_filter_init(struct netif *netif){
+	netif_local = netif;
 	for(int i = 0; i < 8; i++){
 		sys_mbox_new(&ida_filter_mbox[i], IDA_FILTER_MBOX_SIZE);
 	}
+	sys_thread_new("ida_lwip_filter",(void (*)(void*)) _ida_filter_thread, NULL, 512,	TCPIP_THREAD_PRIO - 1);
+
 }
 
 /*
@@ -43,15 +37,15 @@ void ida_filter_mbox_init(){
  * @param prio vlan prio of ethernet packet and therefore prio of message queue, the pbuf will be queued into
  * */
 err_t ida_filter_enqueue_pkt(struct pbuf *p, u8_t prio){
+	CPU_SR cpu_sr;
 
 	if(prio > 7){
 		return ERR_ARG;
 	}
-
+	OS_ENTER_CRITICAL();
 	sys_mbox_trypost(&ida_filter_mbox[prio], (void*)p);
-
-	mbox_status[prio]++;
 	sys_sem_signal(&mbox_sem);
+	OS_EXIT_CRITICAL();
 
 	return ERR_OK;
 }
@@ -62,27 +56,23 @@ err_t ida_filter_enqueue_pkt(struct pbuf *p, u8_t prio){
  * @param p_arg currently unused
  * */
 
-void ida_filter_thread(void* p_arg){
+static void _ida_filter_thread(void* p_arg){
 	void* msg =  NULL;
 	struct pbuf *p;
-
-	ida_filter_mbox_init();
+	err_t err;
 
 	while(1){
 		sys_arch_sem_wait(&mbox_sem, MBOX_SEM_TIMEOUT);
-
-		for(int i; i < 8; i++){
-			while(mbox_status[i] > 0){
-				sys_arch_mbox_fetch(&ida_filter_mbox[i], &msg, MBOX_SEM_TIMEOUT);
+		for(int i = 7; i >= 0; i--){
+			if(sys_arch_mbox_tryfetch(&ida_filter_mbox[i], &msg) != SYS_MBOX_EMPTY){
 				p = (struct pbuf *)msg;
-				ip4_input(p, netif_local);		//need to get the netif from somewhere --> ida_filter_set_netif ??
-				mbox_status[i]--;
-
-				/* Nach sem_wait können mehr Pakete abgearbeiten werden,
-				 * ohne dass die Semaphore heruntergezählt wird.
-				 * -->Problem?										*/
+				err = ip4_input(p, netif_local);
+				if(err == ERR_NOTUS){
+					//Todo: Send to classic stack
+					pbuf_free(p);
+				}
+				break;
 			}
 		}
-
 	}
 }
