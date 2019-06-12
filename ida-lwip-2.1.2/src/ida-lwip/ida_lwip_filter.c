@@ -13,6 +13,8 @@
 
 IDA_LWIP_FILTER_QUEUE ida_filter_queue;
 
+IDA_LWIP_FILTER_MBOX dummy_task_mbox;
+
 struct netif *netif_local;				// local save of netif, is needed to call ip4_input
 
 static void _ida_filter_thread(void* p_arg);
@@ -22,6 +24,12 @@ static void _ida_filter_thread(void* p_arg);
  * */
 void ida_filter_init(struct netif *netif){
 	netif_local = netif;
+
+	/*Initialization of mbox for dummy task*/
+	sys_mbox_new(&dummy_task_mbox.mbox, IDA_FILTER_MBOX_SIZE);
+	dummy_task_mbox.count = 0;
+
+	/*Initialization of ida_filter_queue*/
 	for(int i = 0; i < 8; i++){
 		sys_mbox_new(&ida_filter_queue.filter_mbox[i].mbox, IDA_FILTER_MBOX_SIZE);
 		ida_filter_queue.filter_mbox[i].count = 0;
@@ -82,6 +90,11 @@ static void _ida_filter_thread(void* p_arg){
 			err = ip4_input(p, netif_local);
 			if(err == ERR_NOTUS){
 				//Todo: Send to classic stack
+				sys_mbox_trypost(&dummy_task_mbox.mbox, (void*)p);
+				OS_ENTER_CRITICAL();
+				dummy_task_mbox.count++;
+				OS_EXIT_CRITICAL();
+
 				pbuf_free(p);
 			}
 			break;
