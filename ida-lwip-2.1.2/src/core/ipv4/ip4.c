@@ -512,8 +512,8 @@ ip4_input(struct pbuf *p, struct netif *inp)
 #endif
 
   /* copy IP addresses to aligned ip_addr_t */
-  ip_addr_copy_from_ip4(ip_data.current_iphdr_dest, iphdr->dest);
-  ip_addr_copy_from_ip4(ip_data.current_iphdr_src, iphdr->src);
+  ip_addr_copy_from_ip4(ip_data.current_iphdr_dest, iphdr->dest);		// | todo: thread safe
+  ip_addr_copy_from_ip4(ip_data.current_iphdr_src, iphdr->src);			// | ip_data is a global variable
 
   /* match packet against an interface, i.e. is this packet for us? */
   if (ip4_addr_ismulticast(ip4_current_dest_addr())) {
@@ -682,10 +682,10 @@ ip4_input(struct pbuf *p, struct netif *inp)
   ip4_debug_print(p);
   LWIP_DEBUGF(IP_DEBUG, ("ip4_input: p->len %"U16_F" p->tot_len %"U16_F"\n", p->len, p->tot_len));
 
-  ip_data.current_netif = netif;
-  ip_data.current_input_netif = inp;
-  ip_data.current_ip4_header = iphdr;
-  ip_data.current_ip_header_tot_len = IPH_HL_BYTES(iphdr);
+  ip_data.current_netif = netif;								// |
+  ip_data.current_input_netif = inp;							// | todo: thread safe
+  ip_data.current_ip4_header = iphdr;							// | ip_data is global variable
+  ip_data.current_ip_header_tot_len = IPH_HL_BYTES(iphdr);		// |
 
 #if LWIP_RAW
   /* raw input did not eat the packet? */
@@ -726,12 +726,12 @@ ip4_input(struct pbuf *p, struct netif *inp)
   }
 
   /* @todo: this is not really necessary... */
-  ip_data.current_netif = NULL;
-  ip_data.current_input_netif = NULL;
-  ip_data.current_ip4_header = NULL;
-  ip_data.current_ip_header_tot_len = 0;
-  ip4_addr_set_any(ip4_current_src_addr());
-  ip4_addr_set_any(ip4_current_dest_addr());
+  ip_data.current_netif = NULL;						// |
+  ip_data.current_input_netif = NULL;				// |
+  ip_data.current_ip4_header = NULL;				// | todo: thread safe
+  ip_data.current_ip_header_tot_len = 0;			// | ip_data is a global variable
+  ip4_addr_set_any(ip4_current_src_addr());			// |
+  ip4_addr_set_any(ip4_current_dest_addr());		// |
 
   return ERR_OK;
 

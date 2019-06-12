@@ -295,7 +295,7 @@ udp_input(struct pbuf *p, struct netif *inp)
              found faster next time */
           prev->next = pcb->next;
           pcb->next = udp_pcbs;
-          udp_pcbs = pcb;
+          udp_pcbs = pcb;							// | todo: thread safe -> udp_pcbs is a global variable
         } else {
           UDP_STATS_INC(udp.cachehit);
         }
