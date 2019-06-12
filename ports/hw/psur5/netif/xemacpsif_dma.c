@@ -124,7 +124,7 @@ typedef struct {
 	u32_t 	r2;
 }BUFFER_DESC;
 
-BUFFER_DESC bd_space[XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC] __attribute__ ((aligned (0x10000))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
+BUFFER_DESC bd_space[XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC] __attribute__ ((aligned (XEMACPS_BD_ALIGNMENT))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
 //BUFFER_DESC tx_bd_terminate __attribute__ ((aligned (8))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
 //BUFFER_DESC rx_bd_terminate __attribute__ ((aligned (8))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
 #else
@@ -136,7 +136,7 @@ typedef struct {
 BUFFER_DESC bd_space[XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC] __attribute__ ((aligned (0x10000))) __attribute__ ((section (".ps7_ram_1")));
 #endif
 static volatile u32_t bd_space_index = 0;
-static volatile u32_t bd_space_attr_set = 1;
+static volatile u32_t bd_space_attr_set = 0;
 
 #ifdef OS_IS_FREERTOS
 long xInsideISR = 0;
@@ -621,7 +621,7 @@ XStatus init_dma(struct xemac_s *xemac)
 	 */
 	if (bd_space_attr_set == 0) {
 #if defined (ARMR5)
-	Xil_SetTlbAttributes((s32_t)bd_space, STRONG_ORDERD_SHARED | PRIV_RW_USER_RW); // addr, attr
+	Xil_SetMPURegion((s32_t)bd_space, 0x1000, STRONG_ORDERD_SHARED | PRIV_RW_USER_RW);
 #else
 #if defined __aarch64__
 	Xil_SetTlbAttributes((u64)bd_space, NORM_NONCACHE | INNER_SHAREABLE);
