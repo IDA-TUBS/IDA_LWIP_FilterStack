@@ -260,7 +260,7 @@ udp_input(struct pbuf *p, struct netif *inp)
 
     /* compare PCB local addr+port to UDP destination addr+port */
     if ((pcb->local_port == dest) &&
-        (udp_input_local_match(pcb, inp, broadcast) != 0)) {
+        (udp_input_local_match(pcb, inp, broadcast) != 0)) {			// todo: thread safe? read access on netif's netmask
       if ((pcb->flags & UDP_FLAGS_CONNECTED) == 0) {
         if (uncon_pcb == NULL) {
           /* the first unconnected matching PCB */

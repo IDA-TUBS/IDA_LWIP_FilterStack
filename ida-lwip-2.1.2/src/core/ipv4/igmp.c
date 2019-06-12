@@ -217,7 +217,7 @@ igmp_report_groups(struct netif *netif)
 struct igmp_group *
 igmp_lookfor_group(struct netif *ifp, const ip4_addr_t *addr)
 {
-  struct igmp_group *group = netif_igmp_data(ifp);
+  struct igmp_group *group = netif_igmp_data(ifp);			// todo: thread-safe ?? -> makes use of netif->client_data
 
   while (group != NULL) {
     if (ip4_addr_cmp(&(group->group_address), addr)) {
