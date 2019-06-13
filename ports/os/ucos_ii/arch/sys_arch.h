@@ -32,8 +32,28 @@
 #ifndef LWIP_ARCH_SYS_ARCH_H
 #define LWIP_ARCH_SYS_ARCH_H
 
+#include "lwip/opt.h"
+
 #define SYS_MBOX_NULL NULL
 #define SYS_SEM_NULL  NULL
+
+#ifndef LWIP_SYS_ARCH_MBOX_SIZE
+#define LWIP_SYS_ARCH_MBOX_SIZE					DEFAULT_MBOX_SIZE
+#endif
+
+#ifndef LWIP_SYS_ARCH_NUMBER_OF_MBOXES
+#define LWIP_SYS_ARCH_NUMBER_OF_MBOXES			20
+#endif
+
+#ifndef LWIP_SYS_ARCH_TOTAL_STACK_SIZE
+#define LWIP_SYS_ARCH_TOTAL_STACK_SIZE 2048
+#endif
+
+#ifndef LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES
+#define LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES		20
+#endif
+
+
 
 //struct sys_prot;
 typedef struct uint32_t * sys_prot_t;
