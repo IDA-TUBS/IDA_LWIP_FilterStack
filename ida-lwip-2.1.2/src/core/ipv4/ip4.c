@@ -714,14 +714,10 @@ ip4_input(struct pbuf *p, struct netif *inp)
         break;
 #endif /* LWIP_IGMP */
       default:
-        {
-          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("Unsupported transport protocol %"U16_F"\n", (u16_t)IPH_PROTO(iphdr)));
-          IP_STATS_INC(ip.proterr);
-          IP_STATS_INC(ip.drop);
-          MIB2_STATS_INC(mib2.ipinunknownprotos);
-        }
-        pbuf_free(p);
-
+		LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("Unsupported transport protocol %"U16_F"\n", (u16_t)IPH_PROTO(iphdr)));
+		IP_STATS_INC(ip.proterr);
+		IP_STATS_INC(ip.drop);
+		MIB2_STATS_INC(mib2.ipinunknownprotos);
         LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil DEFAULT\n"));
         goto not_for_us;
 

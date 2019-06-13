@@ -10,10 +10,13 @@
 #include "lwip/etharp.h"
 #include "lwip/ip.h"
 #include "ida-lwip/ida_lwip_filter.h"
+#include "ida-lwip/ida_lwip_monitor.h"
 
 IDA_LWIP_FILTER_QUEUE ida_filter_queue;
 
 IDA_LWIP_FILTER_MBOX dummy_task_mbox;
+
+PBUF_MONITOR_T *classic_mon;
 
 struct netif *netif_local;				// local save of netif, is needed to call ip4_input
 
@@ -23,11 +26,15 @@ static void _ida_filter_thread(void* p_arg);
  * initialization of the 8 mboxes
  * */
 void ida_filter_init(struct netif *netif){
+	ida_monitor_init();
+
 	netif_local = netif;
 
 	/*Initialization of mbox for dummy task*/
 	sys_mbox_new(&dummy_task_mbox.mbox, IDA_FILTER_MBOX_SIZE);
 	dummy_task_mbox.count = 0;
+
+	classic_mon = ida_monitor_alloc(2);
 
 	/*Initialization of ida_filter_queue*/
 	for(int i = 0; i < 8; i++){
@@ -89,15 +96,16 @@ static void _ida_filter_thread(void* p_arg){
 			p = (struct pbuf *)msg;
 			err = ip4_input(p, netif_local);
 			if(err == ERR_NOTUS){
-				//Todo: Send to classic stack
-				sys_mbox_trypost(&dummy_task_mbox.mbox, (void*)p);
-				OS_ENTER_CRITICAL();
-				dummy_task_mbox.count++;
-				OS_EXIT_CRITICAL();
-
-				pbuf_free(p);
+				if(ida_monitor_check(p,classic_mon) > 0){
+					//Todo: Send to classic stack
+					sys_mbox_trypost(&dummy_task_mbox.mbox, (void*)p);
+					OS_ENTER_CRITICAL();
+					dummy_task_mbox.count++;
+					OS_EXIT_CRITICAL();
+				} else {
+					pbuf_free(p);
+				}
 			}
-			break;
 		}
 	}
 }
