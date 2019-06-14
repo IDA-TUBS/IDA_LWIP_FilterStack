@@ -129,6 +129,23 @@ LONG XEmacPs_SetHandler(XEmacPs *InstancePtr, u32 HandlerType,
 		InstancePtr->ErrorHandler = ((XEmacPs_ErrHandler)(void *)FuncPointer);
 		InstancePtr->ErrorRef = CallBackRef;
 		break;
+
+#ifdef XPAR_EMACPS_TSU_ENABLE
+	case XEMACPS_HANDLER_TSU_COMP:
+		Status = (LONG)(XST_SUCCESS);
+		InstancePtr->TSUCompHandler = ((XEmacPs_Handler)(void *)FuncPointer);
+		InstancePtr->TSUCompRef = CallBackRef;
+		break;
+#endif
+
+#ifdef XPAR_EMACPS_PPS_IRQ_ENABLE
+	case XEMACPS_HANDLER_PPS_IRQ:
+		Status = (LONG)(XST_SUCCESS);
+		InstancePtr->PpsIrqHandler = ((XEmacPs_Handler)(void *)FuncPointer);
+		InstancePtr->PpsIrqRef = CallBackRef;
+		break;
+#endif
+
 	default:
 		Status = (LONG)(XST_INVALID_PARAM);
 		break;
@@ -180,13 +197,19 @@ void XEmacPs_IntrHandler(void *XEmacPsPtr)
 #if XPAR_EMACPS_TSU_ENABLE
 	/* PTP TSU Compare Interrupt*/
 	if((RegISR & XEMACPS_IXR_PTP_CMP_MASK) != 0x00000000U) {
-		asm volatile("nop");
+		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_RXSR_OFFSET,
+				((u32)XEMACPS_RXSR_FRAMERX_MASK | (u32)XEMACPS_RXSR_BUFFNA_MASK));
+		InstancePtr->TSUCompHandler(InstancePtr->TSUCompRef);
 	}
 
+#if XPAR_EMACPS_PPS_IRQ_ENABLE
 	/* Pulse per second IRQ */
 	if((RegISR & XEMACPS_IXR_PTP_PPS_MASK) != 0x00000000U) {
-		asm volatile("nop");
+		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_RXSR_OFFSET,
+				((u32)XEMACPS_RXSR_FRAMERX_MASK | (u32)XEMACPS_RXSR_BUFFNA_MASK));
+		InstancePtr->PpsIrqHandler(InstancePtr->PpsIrqRef);
 	}
+#endif
 
 	/* PTP Sync Frame Received */
 	if ((RegISR & XEMACPS_IXR_PTPSRX_MASK) != 0x00000000U) {
