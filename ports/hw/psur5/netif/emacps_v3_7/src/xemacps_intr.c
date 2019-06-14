@@ -196,18 +196,22 @@ void XEmacPs_IntrHandler(void *XEmacPsPtr)
 
 #if XPAR_EMACPS_TSU_ENABLE
 	/* PTP TSU Compare Interrupt*/
-	if((RegISR & XEMACPS_IXR_PTP_CMP_MASK) != 0x00000000U) {
-		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_RXSR_OFFSET,
-				((u32)XEMACPS_RXSR_FRAMERX_MASK | (u32)XEMACPS_RXSR_BUFFNA_MASK));
-		InstancePtr->TSUCompHandler(InstancePtr->TSUCompRef);
+	if (InstancePtr->TSUCompHandler != (XEmacPs_Handler) NULL) {
+		if ((RegISR & XEMACPS_IXR_PTP_CMP_MASK) != 0x00000000U) {
+			XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_RXSR_OFFSET,
+					((u32)XEMACPS_RXSR_FRAMERX_MASK | (u32)XEMACPS_RXSR_BUFFNA_MASK));
+			InstancePtr->TSUCompHandler(InstancePtr->TSUCompRef);
+		}
 	}
 
 #if XPAR_EMACPS_PPS_IRQ_ENABLE
 	/* Pulse per second IRQ */
-	if((RegISR & XEMACPS_IXR_PTP_PPS_MASK) != 0x00000000U) {
-		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_RXSR_OFFSET,
-				((u32)XEMACPS_RXSR_FRAMERX_MASK | (u32)XEMACPS_RXSR_BUFFNA_MASK));
-		InstancePtr->PpsIrqHandler(InstancePtr->PpsIrqRef);
+	if (InstancePtr->PpsIrqHandler != (XEmacPs_Handler) NULL) {
+		if((RegISR & XEMACPS_IXR_PTP_PPS_MASK) != 0x00000000U) {
+			XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_RXSR_OFFSET,
+					((u32)XEMACPS_RXSR_FRAMERX_MASK | (u32)XEMACPS_RXSR_BUFFNA_MASK));
+			InstancePtr->PpsIrqHandler(InstancePtr->PpsIrqRef);
+		}
 	}
 #endif
 
