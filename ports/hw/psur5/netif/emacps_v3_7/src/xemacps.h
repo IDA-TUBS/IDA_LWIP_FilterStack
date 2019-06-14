@@ -456,6 +456,8 @@ extern "C" {
 #define XEMACPS_HANDLER_DMASEND 1U
 #define XEMACPS_HANDLER_DMARECV 2U
 #define XEMACPS_HANDLER_ERROR   3U
+#define XEMACPS_HANDLER_TSU_COMP	4U
+#define XEMACPS_HANDLER_PPS_IRQ   	5U
 /*@}*/
 
 /* Constants to determine the configuration of the hardware device. They are
@@ -546,6 +548,16 @@ typedef struct XEmacPs_Instance {
 
 	XEmacPs_BdRing TxBdRing;	/* Transmit BD ring */
 	XEmacPs_BdRing RxBdRing;	/* Receive BD ring */
+
+#if XPAR_EMACPS_TSU_ENABLE
+	XEmacPs_Handler TSUCompHandler;
+	void *TSUCompRef;
+#endif
+
+#if XPAR_EMACPS_PPS_IRQ_ENABLE
+	XEmacPs_Handler PpsIrqHandler;
+	void *PpsIrqRef;
+#endif
 
 	XEmacPs_Handler SendHandler;
 	XEmacPs_Handler RecvHandler;
