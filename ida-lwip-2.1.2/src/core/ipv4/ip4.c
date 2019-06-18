@@ -518,7 +518,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
   /* match packet against an interface, i.e. is this packet for us? */
   if (ip4_addr_ismulticast(ip4_current_dest_addr())) {
 #if LWIP_IGMP
-    if ((inp->flags & NETIF_FLAG_IGMP) && (igmp_lookfor_group(inp, ip4_current_dest_addr()))) {		// | todo: thread safe -> read access netif's flag and client_data
+    if ((inp->flags & NETIF_FLAG_IGMP) && (igmp_lookfor_group(inp, ip4_current_dest_addr()))) {
       /* IGMP snooping switches need 0.0.0.0 to be allowed as source address (RFC 4541) */
       ip4_addr_t allsystems;
       IP4_ADDR(&allsystems, 224, 0, 0, 1);
@@ -526,7 +526,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
           ip4_addr_isany(ip4_current_src_addr())) {
         check_ip_src = 0;
       }
-      netif = inp;							// | todo: thread safe -> netif
+      netif = inp;
     } else {
       netif = NULL;
     }
@@ -540,8 +540,8 @@ ip4_input(struct pbuf *p, struct netif *inp)
   } else {
     /* start trying with inp. if that's not acceptable, start walking the
        list of configured netifs. */
-    if (ip4_input_accept(inp)) {		// | todo: thread safe
-      netif = inp;						// | -> netif
+    if (ip4_input_accept(inp)) {
+      netif = inp;
     } else {
       netif = NULL;
 #if !LWIP_NETIF_LOOPBACK || LWIP_HAVE_LOOPIF
@@ -552,12 +552,12 @@ ip4_input(struct pbuf *p, struct netif *inp)
 #endif /* !LWIP_NETIF_LOOPBACK || LWIP_HAVE_LOOPIF */
       {
 #if !LWIP_SINGLE_NETIF
-        NETIF_FOREACH(netif) {							// | todo: thread safe ??
-          if (netif == inp) {							// |
-            /* we checked that before already */		// |
-            continue;									// |
-          }												// |
-          if (ip4_input_accept(netif)) {				// |
+        NETIF_FOREACH(netif) {
+          if (netif == inp) {
+            /* we checked that before already */
+            continue;
+          }
+          if (ip4_input_accept(netif)) {
             break;
           }
         }
@@ -584,7 +584,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
                                               lwip_ntohs(udphdr->dest)));
       if (IP_ACCEPT_LINK_LAYER_ADDRESSED_PORT(udphdr->dest)) {
         LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE, ("ip4_input: DHCP packet accepted.\n"));
-        netif = inp;								// | todo: thread safe ??
+        netif = inp;
         check_ip_src = 0;
       }
     }
@@ -601,7 +601,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
      )
 #endif /* LWIP_IGMP || IP_ACCEPT_LINK_LAYER_ADDRESSING */
   {
-    if ((ip4_addr_isbroadcast(ip4_current_src_addr(), inp)) ||				// | todo: thread safe ??
+    if ((ip4_addr_isbroadcast(ip4_current_src_addr(), inp)) ||
         (ip4_addr_ismulticast(ip4_current_src_addr()))) {
       /* packet source is not valid */
       LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING, ("ip4_input: packet source is not valid.\n"));
@@ -682,7 +682,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
   ip4_debug_print(p);
   LWIP_DEBUGF(IP_DEBUG, ("ip4_input: p->len %"U16_F" p->tot_len %"U16_F"\n", p->len, p->tot_len));
 
-  ip_data.current_netif = netif;								// |
+  ip_data.current_netif = netif;
   ip_data.current_input_netif = inp;							// | todo: thread safe
   ip_data.current_ip4_header = iphdr;							// | ip_data is global variable
   ip_data.current_ip_header_tot_len = IPH_HL_BYTES(iphdr);		// |
