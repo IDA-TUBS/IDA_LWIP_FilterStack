@@ -51,6 +51,12 @@ void ida_monitor_init(void){
 	LWIP_MEMPOOL_INIT(MONITOR_POOL);
 }
 
+void ida_monitor_set_trigger(PBUF_MONITOR_T *monitor, u16_t trigger){
+	if(monitor != (PBUF_MONITOR_T*)NULL){
+		monitor->trigger = trigger;
+	}
+}
+
 int ida_monitor_check(struct pbuf *p, PBUF_MONITOR_T *monitor){
 	CPU_SR cpu_sr;
 	int result = 0;

@@ -190,7 +190,7 @@ udp_input_local_match(struct udp_pcb *pcb, struct netif *inp, u8_t broadcast)
  * @param inp network interface on which the datagram was received.
  *
  */
-void
+err_t
 udp_input(struct pbuf *p, struct netif *inp)
 {
   struct udp_hdr *udphdr;
@@ -399,6 +399,7 @@ udp_input(struct pbuf *p, struct netif *inp)
       }
 #endif /* SO_REUSE && SO_REUSE_RXTOALL */
       /* callback */
+//      recv_udp(pcb->recv_arg, pcb, p, ip_current_src_addr(), src);
       if (pcb->recv != NULL) {
         /* now the recv function is responsible for freeing p */
         pcb->recv(pcb->recv_arg, pcb, p, ip_current_src_addr(), src);
@@ -422,14 +423,14 @@ udp_input(struct pbuf *p, struct netif *inp)
       UDP_STATS_INC(udp.proterr);
       UDP_STATS_INC(udp.drop);
       MIB2_STATS_INC(mib2.udpnoports);
-      pbuf_free(p);
+      return ERR_NOTUS;
     }
   } else {
-    pbuf_free(p);
+    return ERR_NOTUS;
   }
 end:
   PERF_STOP("udp_input");
-  return;
+  return ERR_OK;
 #if CHECKSUM_CHECK_UDP
 chkerr:
   LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,

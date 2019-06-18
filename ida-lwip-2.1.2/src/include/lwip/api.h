@@ -49,6 +49,8 @@
 #include "lwip/ip_addr.h"
 #include "lwip/err.h"
 
+#include "ida-lwip/ida_lwip_monitor.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -283,6 +285,9 @@ struct netconn {
 #endif /* LWIP_TCP */
   /** A callback function that is informed about events for this netconn */
   netconn_callback callback;
+#ifdef IDA_LWIP
+  PBUF_MONITOR_T *monitor;
+#endif
 };
 
 /** This vector type is passed to @ref netconn_write_vectors_partly to send

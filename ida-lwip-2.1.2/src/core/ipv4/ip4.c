@@ -702,17 +702,10 @@ ip4_input(struct pbuf *p, struct netif *inp)
       case IP_PROTO_UDPLITE:
 #endif /* LWIP_UDPLITE */
         MIB2_STATS_INC(mib2.ipindelivers);
-        udp_input(p, inp);
+        return udp_input(p, inp);
         break;
 #endif /* LWIP_UDP */
 
-#if LWIP_IGMP
-      case IP_PROTO_IGMP:
-//        igmp_input(p, inp, ip4_current_dest_addr());
-    	LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ip4_input: ERR_NOTUS weil IGMP\n"));
-		goto not_for_us;
-        break;
-#endif /* LWIP_IGMP */
       default:
 		LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("Unsupported transport protocol %"U16_F"\n", (u16_t)IPH_PROTO(iphdr)));
 		IP_STATS_INC(ip.proterr);

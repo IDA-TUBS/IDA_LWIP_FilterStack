@@ -54,6 +54,9 @@
 #include "lwip/netif.h"
 #include "lwip/priv/tcpip_priv.h"
 #include "lwip/mld6.h"
+
+#include "ida-lwip/ida_lwip_monitor.h"
+
 #if LWIP_CHECKSUM_ON_COPY
 #include "lwip/inet_chksum.h"
 #endif
@@ -3378,7 +3381,8 @@ lwip_setsockopt_impl(int s, int level, int optname, const void *optval, socklen_
 #if LWIP_SO_RCVBUF
         case SO_RCVBUF:
           LWIP_SOCKOPT_CHECK_OPTLEN_CONN(sock, optlen, int);
-          netconn_set_recvbufsize(sock->conn, *(const int *)optval);
+          ida_monitor_set_trigger(sock->conn->monitor,*(u16_t*)optval);
+//          netconn_set_recvbufsize(sock->conn, *(const int *)optval);
           break;
 #endif /* LWIP_SO_RCVBUF */
 #if LWIP_SO_LINGER

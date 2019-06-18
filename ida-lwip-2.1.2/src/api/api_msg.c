@@ -54,6 +54,8 @@
 #include "lwip/mld6.h"
 #include "lwip/priv/tcpip_priv.h"
 
+#include "ida-lwip/ida_lwip_monitor.h"
+
 #include <string.h>
 
 /* netconns are polled once per second (e.g. continue write on memory error) */
@@ -214,16 +216,13 @@ recv_raw(void *arg, struct raw_pcb *pcb, struct pbuf *p,
  *
  * @see udp.h (struct udp_pcb.recv) for parameters
  */
-static void
+void
 recv_udp(void *arg, struct udp_pcb *pcb, struct pbuf *p,
          const ip_addr_t *addr, u16_t port)
 {
   struct netbuf *buf;
   struct netconn *conn;
   u16_t len;
-#if LWIP_SO_RCVBUF
-  int recv_avail;
-#endif /* LWIP_SO_RCVBUF */
 
   LWIP_UNUSED_ARG(pcb); /* only used for asserts... */
   LWIP_ASSERT("recv_udp must have a pcb argument", pcb != NULL);
@@ -237,15 +236,15 @@ recv_udp(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 
   LWIP_ASSERT("recv_udp: recv for wrong pcb!", conn->pcb.udp == pcb);
 
-#if LWIP_SO_RCVBUF
-  SYS_ARCH_GET(conn->recv_avail, recv_avail);
-  if (!NETCONN_MBOX_VALID(conn, &conn->recvmbox) ||
-      ((recv_avail + (int)(p->tot_len)) > conn->recv_bufsize)) {
-#else  /* LWIP_SO_RCVBUF */
+
   if (!NETCONN_MBOX_VALID(conn, &conn->recvmbox)) {
-#endif /* LWIP_SO_RCVBUF */
     pbuf_free(p);
     return;
+  }
+
+  if (!ida_monitor_check(p, conn->monitor)){
+	  pbuf_free(p);
+	  return;
   }
 
   buf = (struct netbuf *)memp_malloc(MEMP_NETBUF);
@@ -257,15 +256,6 @@ recv_udp(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     buf->ptr = p;
     ip_addr_set(&buf->addr, addr);
     buf->port = port;
-#if LWIP_NETBUF_RECVINFO
-    if (conn->flags & NETCONN_FLAG_PKTINFO) {
-      /* get the UDP header - always in the first pbuf, ensured by udp_input */
-      const struct udp_hdr *udphdr = (const struct udp_hdr *)ip_next_header_ptr();
-      buf->flags = NETBUF_FLAG_DESTADDR;
-      ip_addr_set(&buf->toaddr, ip_current_dest_addr());
-      buf->toport_chksum = udphdr->dest;
-    }
-#endif /* LWIP_NETBUF_RECVINFO */
   }
 
   len = p->tot_len;
@@ -273,9 +263,6 @@ recv_udp(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     netbuf_delete(buf);
     return;
   } else {
-#if LWIP_SO_RCVBUF
-    SYS_ARCH_INC(conn->recv_avail, len);
-#endif /* LWIP_SO_RCVBUF */
     /* Register event with callback */
     API_EVENT(conn, NETCONN_EVT_RCVPLUS, len);
   }
@@ -619,32 +606,19 @@ pcb_new(struct api_msg *msg)
   }
 #endif
 
+  PBUF_MONITOR_T *monitor = ida_monitor_alloc(2);
+  if(monitor == (PBUF_MONITOR_T*)NULL){
+	  msg->err = ERR_VAL;
+	  return;
+  }
+  msg->conn->monitor = monitor;
+
   /* Allocate a PCB for this connection */
   switch (NETCONNTYPE_GROUP(msg->conn->type)) {
-#if LWIP_RAW
-    case NETCONN_RAW:
-      msg->conn->pcb.raw = raw_new_ip_type(iptype, msg->msg.n.proto);
-      if (msg->conn->pcb.raw != NULL) {
-#if LWIP_IPV6
-        /* ICMPv6 packets should always have checksum calculated by the stack as per RFC 3542 chapter 3.1 */
-        if (NETCONNTYPE_ISIPV6(msg->conn->type) && msg->conn->pcb.raw->protocol == IP6_NEXTH_ICMP6) {
-          msg->conn->pcb.raw->chksum_reqd = 1;
-          msg->conn->pcb.raw->chksum_offset = 2;
-        }
-#endif /* LWIP_IPV6 */
-        raw_recv(msg->conn->pcb.raw, recv_raw, msg->conn);
-      }
-      break;
-#endif /* LWIP_RAW */
 #if LWIP_UDP
     case NETCONN_UDP:
       msg->conn->pcb.udp = udp_new_ip_type(iptype);
       if (msg->conn->pcb.udp != NULL) {
-#if LWIP_UDPLITE
-        if (NETCONNTYPE_ISUDPLITE(msg->conn->type)) {
-          udp_setflags(msg->conn->pcb.udp, UDP_FLAGS_UDPLITE);
-        }
-#endif /* LWIP_UDPLITE */
         if (NETCONNTYPE_ISUDPNOCHKSUM(msg->conn->type)) {
           udp_setflags(msg->conn->pcb.udp, UDP_FLAGS_NOCHKSUM);
         }
@@ -652,14 +626,6 @@ pcb_new(struct api_msg *msg)
       }
       break;
 #endif /* LWIP_UDP */
-#if LWIP_TCP
-    case NETCONN_TCP:
-      msg->conn->pcb.tcp = tcp_new_ip_type(iptype);
-      if (msg->conn->pcb.tcp != NULL) {
-        setup_tcp(msg->conn);
-      }
-      break;
-#endif /* LWIP_TCP */
     default:
       /* Unsupported netconn type, e.g. protocol disabled */
       msg->err = ERR_VAL;
