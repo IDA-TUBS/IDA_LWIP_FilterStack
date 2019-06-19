@@ -59,7 +59,11 @@ extern "C" {
 #endif
 
 /** Currently, the function ip_output_if_opt() is only used with IGMP */
+#ifndef IDA_LWIP
 #define IP_OPTIONS_SEND   (LWIP_IPV4 && LWIP_IGMP)
+#else
+#define IP_OPTIONS_SEND   0
+#endif
 
 #define ip_init() /* Compatibility define, no init needed. */
 struct netif *ip4_route(const ip4_addr_t *dest);

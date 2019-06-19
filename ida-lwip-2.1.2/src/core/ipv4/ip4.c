@@ -831,41 +831,41 @@ ip4_output_if_opt_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *d
   /* Should the IP header be generated or is it already included in p? */
   if (dest != LWIP_IP_HDRINCL) {
     u16_t ip_hlen = IP_HLEN;
-#if IP_OPTIONS_SEND
-    u16_t optlen_aligned = 0;
-    if (optlen != 0) {
-#if CHECKSUM_GEN_IP_INLINE
-      int i;
-#endif /* CHECKSUM_GEN_IP_INLINE */
-      if (optlen > (IP_HLEN_MAX - IP_HLEN)) {
-        /* optlen too long */
-        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output_if_opt: optlen too long\n"));
-        IP_STATS_INC(ip.err);
-        MIB2_STATS_INC(mib2.ipoutdiscards);
-        return ERR_VAL;
-      }
-      /* round up to a multiple of 4 */
-      optlen_aligned = (u16_t)((optlen + 3) & ~3);
-      ip_hlen = (u16_t)(ip_hlen + optlen_aligned);
-      /* First write in the IP options */
-      if (pbuf_add_header(p, optlen_aligned)) {
-        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output_if_opt: not enough room for IP options in pbuf\n"));
-        IP_STATS_INC(ip.err);
-        MIB2_STATS_INC(mib2.ipoutdiscards);
-        return ERR_BUF;
-      }
-      MEMCPY(p->payload, ip_options, optlen);
-      if (optlen < optlen_aligned) {
-        /* zero the remaining bytes */
-        memset(((char *)p->payload) + optlen, 0, (size_t)(optlen_aligned - optlen));
-      }
-#if CHECKSUM_GEN_IP_INLINE
-      for (i = 0; i < optlen_aligned / 2; i++) {
-        chk_sum += ((u16_t *)p->payload)[i];
-      }
-#endif /* CHECKSUM_GEN_IP_INLINE */
-    }
-#endif /* IP_OPTIONS_SEND */
+//#if IP_OPTIONS_SEND
+//    u16_t optlen_aligned = 0;
+//    if (optlen != 0) {
+//#if CHECKSUM_GEN_IP_INLINE
+//      int i;
+//#endif /* CHECKSUM_GEN_IP_INLINE */
+//      if (optlen > (IP_HLEN_MAX - IP_HLEN)) {
+//        /* optlen too long */
+//        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output_if_opt: optlen too long\n"));
+//        IP_STATS_INC(ip.err);
+//        MIB2_STATS_INC(mib2.ipoutdiscards);
+//        return ERR_VAL;
+//      }
+//      /* round up to a multiple of 4 */
+//      optlen_aligned = (u16_t)((optlen + 3) & ~3);
+//      ip_hlen = (u16_t)(ip_hlen + optlen_aligned);
+//      /* First write in the IP options */
+//      if (pbuf_add_header(p, optlen_aligned)) {
+//        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output_if_opt: not enough room for IP options in pbuf\n"));
+//        IP_STATS_INC(ip.err);
+//        MIB2_STATS_INC(mib2.ipoutdiscards);
+//        return ERR_BUF;
+//      }
+//      MEMCPY(p->payload, ip_options, optlen);
+//      if (optlen < optlen_aligned) {
+//        /* zero the remaining bytes */
+//        memset(((char *)p->payload) + optlen, 0, (size_t)(optlen_aligned - optlen));
+//      }
+//#if CHECKSUM_GEN_IP_INLINE
+//      for (i = 0; i < optlen_aligned / 2; i++) {
+//        chk_sum += ((u16_t *)p->payload)[i];
+//      }
+//#endif /* CHECKSUM_GEN_IP_INLINE */
+//    }
+//#endif /* IP_OPTIONS_SEND */
     /* generate IP header */
     if (pbuf_add_header(p, IP_HLEN)) {
       LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output: not enough room for IP header in pbuf\n"));
