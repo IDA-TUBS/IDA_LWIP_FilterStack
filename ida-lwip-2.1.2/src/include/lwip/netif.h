@@ -212,7 +212,7 @@ typedef err_t (*netif_output_ip6_fn)(struct netif *netif, struct pbuf *p,
 typedef err_t (*netif_linkoutput_fn)(struct netif *netif, struct pbuf *p);
 /** Function prototype for netif status- or link-callback functions. */
 typedef void (*netif_status_callback_fn)(struct netif *netif);
-#if LWIP_IPV4 && LWIP_IGMP
+#if LWIP_IPV4 && (LWIP_IGMP || defined(IDA_LWIP))
 /** Function prototype for netif igmp_mac_filter functions */
 typedef err_t (*netif_igmp_mac_filter_fn)(struct netif *netif,
        const ip4_addr_t *group, enum netif_mac_filter_action action);
@@ -366,7 +366,7 @@ struct netif {
   /** counters */
   struct stats_mib2_netif_ctrs mib2_counters;
 #endif /* MIB2_STATS */
-#if LWIP_IPV4 && LWIP_IGMP
+#if LWIP_IPV4 && (LWIP_IGMP || defined(IDA_LWIP))
   /** This function could be called to add or delete an entry in the multicast
       filter table of the ethernet MAC.*/
   netif_igmp_mac_filter_fn igmp_mac_filter;

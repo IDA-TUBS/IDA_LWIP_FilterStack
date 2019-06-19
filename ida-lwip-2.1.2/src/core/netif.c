@@ -342,7 +342,7 @@ netif_add(struct netif *netif,
 #if LWIP_NETIF_LINK_CALLBACK
   netif->link_callback = NULL;
 #endif /* LWIP_NETIF_LINK_CALLBACK */
-#if LWIP_IGMP
+#if LWIP_IGMP || defined(IDA_LWIP)
   netif->igmp_mac_filter = NULL;
 #endif /* LWIP_IGMP */
 #if LWIP_IPV6 && LWIP_IPV6_MLD

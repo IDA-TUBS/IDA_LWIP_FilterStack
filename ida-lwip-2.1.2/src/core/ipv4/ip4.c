@@ -49,13 +49,14 @@
 #include "lwip/inet_chksum.h"
 #include "lwip/netif.h"
 #include "lwip/icmp.h"
-#include "lwip/igmp.h"
+//#include "lwip/igmp.h"
 #include "lwip/priv/raw_priv.h"
 #include "lwip/udp.h"
 #include "lwip/priv/tcp_priv.h"
 #include "lwip/autoip.h"
 #include "lwip/stats.h"
 #include "lwip/prot/iana.h"
+#include "ida-lwip/ida_lwip_igmp.h"
 
 #include <string.h>
 
@@ -429,9 +430,8 @@ ip4_input(struct pbuf *p, struct netif *inp)
   struct netif *netif;
   u16_t iphdr_hlen;
   u16_t iphdr_len;
-#if IP_ACCEPT_LINK_LAYER_ADDRESSING || LWIP_IGMP
   int check_ip_src = 1;
-#endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING || LWIP_IGMP */
+
 #if LWIP_RAW
   raw_input_state_t raw_status;
 #endif /* LWIP_RAW */
@@ -517,8 +517,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
 
   /* match packet against an interface, i.e. is this packet for us? */
   if (ip4_addr_ismulticast(ip4_current_dest_addr())) {
-#if LWIP_IGMP
-    if ((inp->flags & NETIF_FLAG_IGMP) && (igmp_lookfor_group(inp, ip4_current_dest_addr()))) {
+    if ((inp->flags & NETIF_FLAG_IGMP) && (ida_lwip_igmp_lookfor_group(inp, ip4_current_dest_addr()))) {
       /* IGMP snooping switches need 0.0.0.0 to be allowed as source address (RFC 4541) */
       ip4_addr_t allsystems;
       IP4_ADDR(&allsystems, 224, 0, 0, 1);
@@ -530,13 +529,6 @@ ip4_input(struct pbuf *p, struct netif *inp)
     } else {
       netif = NULL;
     }
-#else /* LWIP_IGMP */
-    if ((netif_is_up(inp)) && (!ip4_addr_isany_val(*netif_ip4_addr(inp)))) {
-      netif = inp;
-    } else {
-      netif = NULL;
-    }
-#endif /* LWIP_IGMP */
   } else {
     /* start trying with inp. if that's not acceptable, start walking the
        list of configured netifs. */
@@ -592,14 +584,12 @@ ip4_input(struct pbuf *p, struct netif *inp)
 #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING */
 
   /* broadcast or multicast packet source address? Compliant with RFC 1122: 3.2.1.3 */
-#if LWIP_IGMP || IP_ACCEPT_LINK_LAYER_ADDRESSING
   if (check_ip_src
 #if IP_ACCEPT_LINK_LAYER_ADDRESSING
       /* DHCP servers need 0.0.0.0 to be allowed as source address (RFC 1.1.2.2: 3.2.1.3/a) */
       && !ip4_addr_isany_val(*ip4_current_src_addr())
 #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING */
      )
-#endif /* LWIP_IGMP || IP_ACCEPT_LINK_LAYER_ADDRESSING */
   {
     if ((ip4_addr_isbroadcast(ip4_current_src_addr(), inp)) ||
         (ip4_addr_ismulticast(ip4_current_src_addr()))) {
@@ -661,12 +651,8 @@ ip4_input(struct pbuf *p, struct netif *inp)
 
 #if IP_OPTIONS_ALLOWED == 0 /* no support for IP options in the IP header? */
 
-#if LWIP_IGMP
   /* there is an extra "router alert" option in IGMP messages which we allow for but do not police */
   if ((iphdr_hlen > IP_HLEN) &&  (IPH_PROTO(iphdr) != IP_PROTO_IGMP)) {
-#else
-  if (iphdr_hlen > IP_HLEN) {
-#endif /* LWIP_IGMP */
     LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("IP packet dropped since there were IP options (while IP_OPTIONS_ALLOWED == 0).\n"));
     pbuf_free(p);
     IP_STATS_INC(ip.opterr);

@@ -113,13 +113,13 @@ PACK_STRUCT_END
 #if (LWIP_TCP && (MEMP_NUM_TCP_PCB<=0))
 #error "If you want to use TCP, you have to define MEMP_NUM_TCP_PCB>=1 in your lwipopts.h"
 #endif
-#if (LWIP_IGMP && (MEMP_NUM_IGMP_GROUP<=1))
+#if ((LWIP_IGMP || defined(IDA_LWIP)) && (MEMP_NUM_IGMP_GROUP<=1))
 #error "If you want to use IGMP, you have to define MEMP_NUM_IGMP_GROUP>1 in your lwipopts.h"
 #endif
-#if (LWIP_IGMP && !LWIP_MULTICAST_TX_OPTIONS)
+#if ((LWIP_IGMP || defined(IDA_LWIP)) && !LWIP_MULTICAST_TX_OPTIONS)
 #error "If you want to use IGMP, you have to define LWIP_MULTICAST_TX_OPTIONS==1 in your lwipopts.h"
 #endif
-#if (LWIP_IGMP && !LWIP_IPV4)
+#if ((LWIP_IGMP || defined(IDA_LWIP)) && !LWIP_IPV4)
 #error "IGMP needs LWIP_IPV4 enabled in your lwipopts.h"
 #endif
 #if ((LWIP_NETCONN || LWIP_SOCKET) && (MEMP_NUM_TCPIP_MSG_API<=0))

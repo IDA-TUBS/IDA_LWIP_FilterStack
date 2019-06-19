@@ -1,5 +1,6 @@
 SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_filter.c
 SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_monitor.c
+SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_igmp.c
 
 #SRC += $(LWIP_CORE_SRC_DIR)/core/ipv6/dhcp6.c
 #SRC += $(LWIP_CORE_SRC_DIR)/core/ipv6/ethip6.c
@@ -14,7 +15,7 @@ SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_monitor.c
 #SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/dhcp.c
 SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/etharp.c
 #SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/icmp.c
-SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/igmp.c
+#SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/igmp.c
 SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/ip4.c
 SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/ip4_addr.c
 #SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/ip4_frag.c
