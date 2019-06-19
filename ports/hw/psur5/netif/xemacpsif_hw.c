@@ -78,7 +78,7 @@ void init_emacps(xemacpsif_s *xemacps, struct netif *netif)
 	XEmacPs_SetOptions(xemacpsp, XEMACPS_JUMBO_ENABLE_OPTION);
 #endif
 
-#ifdef LWIP_IGMP
+#if LWIP_IGMP || defined(IDA_LWIP)
 	XEmacPs_SetOptions(xemacpsp, XEMACPS_MULTICAST_OPTION);
 #endif
 
