@@ -1,6 +1,7 @@
 SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_filter.c
 SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_monitor.c
 SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_igmp.c
+SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_prio_queue.c
 
 #SRC += $(LWIP_CORE_SRC_DIR)/core/ipv6/dhcp6.c
 #SRC += $(LWIP_CORE_SRC_DIR)/core/ipv6/ethip6.c
