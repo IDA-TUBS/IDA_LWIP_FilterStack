@@ -44,6 +44,7 @@
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
+#include "ida-lwip/ida_lwip_monitor.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,6 +62,15 @@ extern "C" {
 union lwip_sock_lastdata {
   struct netbuf *netbuf;
   struct pbuf *pbuf;
+};
+
+struct ida_lwip_sock{
+	sys_sem_t *sem;
+	sys_mbox_t *mbox;
+	u16_t	id;
+	u16_t	prio;
+	struct ida_lwip_sock *next;
+	PBUF_MONITOR_T *monitor;
 };
 
 /** Contains all internal pointers and states used for a socket */
