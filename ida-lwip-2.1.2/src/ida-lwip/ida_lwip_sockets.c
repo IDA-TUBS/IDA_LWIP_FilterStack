@@ -259,6 +259,7 @@ sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_
 
 #define sock_inc_used(sock)         1
 #define sock_inc_used_locked(sock)  1
+#define IPTYPE IPADDR_TYPE_V4
 
 typedef enum {
 	SOCKET_MGM_CREATE = 0,
@@ -342,6 +343,8 @@ static int _ida_lwip_socketCreate(){
 	if(s == NULL){
 		sys_sem_free(sem);
 		sys_mbox_free(mbox);
+		ida_monitor_free(monitor);
+		//todo: here was kai's last edit
 		return -1;
 	}
 
@@ -357,6 +360,43 @@ static int _ida_lwip_socketCreate(){
 	return s->id;
 }
 
+
+static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t namelen){
+	struct ida_lwip_sock *sock;
+	ip_addr_t local_addr;
+	u16_t local_port;
+	struct udp_pcb *pcb;
+
+	sock = get_socket(s);
+	if (sock == NULL){
+		return -1;
+	}
+	//todo check whether addr valid necessary?
+	/* check size, family and alignment of 'name' */
+	LWIP_ERROR("ida_lwip_socketBind: invalid address", (IS_SOCK_ADDR_LEN_VALID(namelen) &&
+	           IS_SOCK_ADDR_TYPE_VALID(name) && IS_SOCK_ADDR_ALIGNED(name)),
+	           sock_set_errno(sock, err_to_errno(ERR_ARG)); done_socket(sock); return -1;);
+
+	SOCKADDR_TO_IPADDR_PORT(name, &local_addr, local_port);
+	if(local_port == 0){
+		local_port = udp_new_port();
+		if(local_port == 0){
+			return -1;
+		}
+	}
+
+	pcb = udp_new_ip_type(IPTYPE);
+	if(pcb == NULL){
+		return -1;
+	}
+	ip_addr_set_ipaddr(&pcb->local_ip, ipaddr);
+	pcb->local_port = port;
+
+	//todo set flags?? udp_setflags(msg->conn->pcb.udp, UDP_FLAGS_NOCHKSUM);
+	upd_recv(pcb, recv_udp, NULL); //todo not recv_udp
+
+}
+
 static void ida_lwip_socketSupervisorTask(void *p_arg){
 	(void)p_arg;
 	IDA_LWIP_SOCKET_MGM *msg;
@@ -367,9 +407,30 @@ static void ida_lwip_socketSupervisorTask(void *p_arg){
 			switch(msg->type){
 			case SOCKET_MGM_CREATE:
 				msg->returnValue = _ida_lwip_socketCreate();
-				sys_sem_signal(msg->ackSem);
+				sys_sem_signal(&(msg->ackSem));
+				break;
+
+			case SOCKET_MGM_BIND:
+				msg->returnValue = _ida_lwip_socketBind(msg->socket, msg->data, msg->dataLen);
+				sys_sem_signal(&(msg->ackSem));
+				break;
+
+			case SOCKET_MGM_SELECT:
+//				msg->returnValue = ;
+				sys_sem_signal(&(msg->ackSem));
+				break;
+
+			case SOCKET_MGM_CLOSE:
+//				msg->returnValue = ;
+				sys_sem_signal(&(msg->ackSem));
+				break;
+
+			default:
+				msg->returnValue = -1;
+				sys_sem_signal(&(msg->ackSem));
 				break;
 			}
+
 		}
 	}
 }
@@ -399,8 +460,13 @@ static int _ida_lwip_socketMgmFree(IDA_LWIP_SOCKET_MGM *mgm){
 }
 
 static struct ida_lwip_sock *get_socket(int fd){
-	//todo: Check parameters
-	return &sockets[fd];
+	//todo: Check parameters <-- done?
+	struct ida_lwip_sock *sock = &sockets[fd];
+
+	if (sock->mbox != NULL && sock->monitor != NULL && sock->sem != NULL){
+		return sock;
+	}
+	return NULL;
 }
 
 /**

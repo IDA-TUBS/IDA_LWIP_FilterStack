@@ -27,6 +27,7 @@ struct pbuf * ida_monitored_pbuf_alloc(u16_t length);
 void ida_monitor_set_trigger(PBUF_MONITOR_T *monitor, u16_t trigger);
 int ida_monitor_check(struct pbuf *p, PBUF_MONITOR_T *monitor);
 PBUF_MONITOR_T * ida_monitor_alloc(u16_t trigger);
+void ida_monitor_free(PBUF_MONITOR_T *monitor);
 void ida_monitor_init(void);
 
 

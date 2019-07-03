@@ -85,4 +85,13 @@ PBUF_MONITOR_T * ida_monitor_alloc(u16_t trigger){
 	return monitor;
 }
 
+void ida_monitor_free(PBUF_MONITOR_T *monitor){
+	if(monitor != NULL){
+		monitor->counter = 0;
+		monitor->trigger = 0;
+		LWIP_MEMPOOL_FREE(MONITOR_POOL, monitor);
+	}
+
+}
+
 
