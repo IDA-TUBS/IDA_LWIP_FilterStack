@@ -283,6 +283,10 @@ LWIP_MEMPOOL_DECLARE(SOCKET_MGM_POOL, 20, sizeof(IDA_LWIP_SOCKET_MGM), "Socket M
 static struct ida_lwip_sock sockets[NUM_SOCKETS];
 static struct ida_lwip_sock *socketFreeList;
 
+/*functions*/
+static struct ida_lwip_sock *get_socket(int fd);
+static err_t lwip_recvfrom_udp_raw(struct lwip_sock *sock, int flags, struct msghdr *msg, u16_t *datagram_len, int dbg_s);
+static void free_socket(struct lwip_sock *sock, int is_tcp);
 
 static sys_mbox_t *socket_mgm_queue;
 
@@ -307,6 +311,64 @@ void ida_lwip_initSockets(void){
 	}
 	socketFreeList = &sockets[0];
 	memset(sockets,0,sizeof(sockets));
+}
+
+static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,const ip_addr_t *addr, u16_t port){
+
+	struct ida_lwip_sock *s;
+//	struct netbuf *buf;
+
+	u16_t len;
+
+	s = (struct ida_lwip_sock *)arg;
+
+	if(pcb == NULL || arg == NULL || s == NULL){
+		pbuf_free(p);
+		return;
+	}
+
+	if (!sys_mbox_valid(s->mbox)) {
+		pbuf_free(p);
+		return;
+	}
+
+	if (!ida_monitor_check(p, s->monitor)){
+		pbuf_free(p);
+		return;
+	}
+
+//	  buf = (struct netbuf *)memp_malloc(MEMP_NETBUF);
+//	  if (buf == NULL) {
+//	    pbuf_free(p);
+//	    return;
+//	  } else {
+//	    buf->p = p;
+//	    buf->ptr = p;
+//	    ip_addr_set(&buf->addr, addr);
+//	    buf->port = port;
+//	  }
+	if (sys_mbox_trypost(s->mbox, p) != ERR_OK) {
+		pbuf_free(p);
+		return;
+	}
+}
+
+static struct udp_pcb* _ida_lwip_newPcb(struct ida_lwip_sock *sock){
+	struct udp_pcb* pcb;
+
+	pcb = udp_new_ip_type(IPTYPE);
+
+	if(pcb == NULL){
+		return NULL;
+	}
+
+	//todo set flags?? udp_setflags(msg->conn->pcb.udp, UDP_FLAGS_NOCHKSUM);
+
+	pcb->recv = (udp_recv_fn)_ida_lwip_socketRecv;
+	pcb->recv_arg = sock;
+
+	return pcb;
+
 }
 
 
@@ -360,7 +422,6 @@ static int _ida_lwip_socketCreate(){
 	return s->id;
 }
 
-
 static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t namelen){
 	struct ida_lwip_sock *sock;
 	ip_addr_t local_addr;
@@ -373,27 +434,43 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 	}
 	//todo check whether addr valid necessary?
 	/* check size, family and alignment of 'name' */
-	LWIP_ERROR("ida_lwip_socketBind: invalid address", (IS_SOCK_ADDR_LEN_VALID(namelen) &&
-	           IS_SOCK_ADDR_TYPE_VALID(name) && IS_SOCK_ADDR_ALIGNED(name)),
-	           sock_set_errno(sock, err_to_errno(ERR_ARG)); done_socket(sock); return -1;);
-
-	SOCKADDR_TO_IPADDR_PORT(name, &local_addr, local_port);
-	if(local_port == 0){
-		local_port = udp_new_port();
-		if(local_port == 0){
-			return -1;
-		}
+	if(!(IS_SOCK_ADDR_LEN_VALID(namelen) && IS_SOCK_ADDR_TYPE_VALID(name) && IS_SOCK_ADDR_ALIGNED(name))){
+		return -1;
 	}
 
-	pcb = udp_new_ip_type(IPTYPE);
+	SOCKADDR_TO_IPADDR_PORT(name, &local_addr, local_port);
+
+	pcb = _ida_lwip_newPcb(sock);
 	if(pcb == NULL){
 		return -1;
 	}
-	ip_addr_set_ipaddr(&pcb->local_ip, ipaddr);
-	pcb->local_port = port;
 
-	//todo set flags?? udp_setflags(msg->conn->pcb.udp, UDP_FLAGS_NOCHKSUM);
-	upd_recv(pcb, recv_udp, NULL); //todo not recv_udp
+	if(local_port == 0){
+
+		return -1;
+
+	} else {
+	    for (pcb = udp_pcbs; pcb != NULL; pcb = pcb->next) {
+	      if (pcb != pcb) {
+	          /* By default, we don't allow to bind to a port that any other udp
+	           PCB is already bound to, unless *all* PCBs with that port have the
+	           REUSEADDR flag set. */
+	          /* port matches that of PCB in list and REUSEADDR not set -> reject */
+	          if ((pcb->local_port == local_port) && (ip_addr_cmp(&pcb->local_ip, &local_addr) || ip_addr_isany(&local_addr) ||  ip_addr_isany(&pcb->local_ip))) {
+	              /* other PCB already binds to this local IP and port */
+	              //LWIP_DEBUGF(UDP_DEBUG, ("udp_bind: local port %"U16_F" already bound by another pcb\n", port));
+
+	            return -1;
+	         }
+	       }
+	     }
+	  }
+	//todo: check whether port already bound to other pcbs necessary?
+
+	ip_addr_set_ipaddr(&pcb->local_ip, &local_addr);
+	pcb->local_port = local_port;
+
+	return 0;
 
 }
 
@@ -453,7 +530,7 @@ static int _ida_lwip_socketMgmAlloc(IDA_LWIP_SOCKET_MGM **mgm){
 }
 
 static int _ida_lwip_socketMgmFree(IDA_LWIP_SOCKET_MGM *mgm){
-	int result = &mgm->returnValue;
+	int result = mgm->returnValue;
 	sys_sem_free(&mgm->ackSem);
 	LWIP_MEMPOOL_FREE(SOCKET_MGM_POOL,mgm);
 	return result;
@@ -554,7 +631,7 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
       LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_recvfrom[UDP/RAW](%d): buf == NULL, error is \"%s\"!\n",
                                   s, lwip_strerr(err)));
       sock_set_errno(sock, err_to_errno(err));
-      done_socket(sock);
+      free_socket(sock,0);//done_socket(sock);
       return -1;
     }
     ret = (ssize_t)LWIP_MIN(LWIP_MIN(len, datagram_len), SSIZE_MAX);
@@ -564,7 +641,7 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
   }
 
   sock_set_errno(sock, 0);
-  done_socket(sock);
+  free_socket(sock,0);//done_socket(sock);
   return ret;
 }
 
