@@ -261,6 +261,10 @@ sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_
 #define sock_inc_used_locked(sock)  1
 #define IPTYPE IPADDR_TYPE_V4
 
+#define SOCK_SUPERV_TASK_STACK_SIZE 1024
+#define SOCK_SUPERV_TASK_PRIO 10 //same as dummy task
+static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
+
 typedef enum {
 	SOCKET_MGM_CREATE = 0,
 	SOCKET_MGM_BIND,
@@ -277,27 +281,43 @@ typedef struct {
 	sys_sem_t ackSem;
 } IDA_LWIP_SOCKET_MGM;
 
+
 LWIP_MEMPOOL_DECLARE(SOCKET_MGM_POOL, 20, sizeof(IDA_LWIP_SOCKET_MGM), "Socket Management Message Pool");
 
 /** The global array of available sockets */
 static struct ida_lwip_sock sockets[NUM_SOCKETS];
 static struct ida_lwip_sock *socketFreeList;
-
+/** the global array of available mboxes*/
+static sys_mbox_t socket_msg_queues[NUM_SOCKETS];
+static int socket_msg_queue_counter = 0;
 /*functions*/
 static struct ida_lwip_sock *get_socket(int fd);
 static err_t lwip_recvfrom_udp_raw(struct lwip_sock *sock, int flags, struct msghdr *msg, u16_t *datagram_len, int dbg_s);
 static void free_socket(struct lwip_sock *sock, int is_tcp);
+static int _ida_free_socket(struct ida_lwip_sock *sock);
+void ida_lwip_init(void);
 
-static sys_mbox_t *socket_mgm_queue;
+//static sys_mbox_t socket_managment_queue:
+static sys_mbox_t socket_mgm_queue;
 
 /**
  * INTERNAL_SOCKET_HANDLING
  * Internal socket handling by supervisor task
  */
 
+static sys_mbox_t* _ida_lwip_get_mbox(){
+	sys_mbox_t* mbox;
+	if (socket_msg_queue_counter > NUM_SOCKETS){
+		return NULL;
+	}
+	mbox = &socket_msg_queues[socket_msg_queue_counter];
+	socket_msg_queue_counter++;
+	return mbox;
+}
+
 void ida_lwip_initSockets(void){
 	LWIP_MEMPOOL_INIT(SOCKET_MGM_POOL);
-	sys_mbox_new(socket_mgm_queue,20);
+	sys_mbox_new(&socket_mgm_queue,20);
 
 	for(int i = 0; i < NUM_SOCKETS; i++){
 		sockets[i].id = i;
@@ -310,7 +330,7 @@ void ida_lwip_initSockets(void){
 			sockets[i].next = NULL;
 	}
 	socketFreeList = &sockets[0];
-	memset(sockets,0,sizeof(sockets));
+//	memset(sockets,0,sizeof(sockets));
 }
 
 static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,const ip_addr_t *addr, u16_t port){
@@ -320,9 +340,14 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 
 	u16_t len;
 
+	if(pcb == NULL || arg == NULL){
+		pbuf_free(p);
+		return;
+	}
+
 	s = (struct ida_lwip_sock *)arg;
 
-	if(pcb == NULL || arg == NULL || s == NULL){
+	if(s == NULL){
 		pbuf_free(p);
 		return;
 	}
@@ -347,10 +372,14 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 //	    ip_addr_set(&buf->addr, addr);
 //	    buf->port = port;
 //	  }
+
 	if (sys_mbox_trypost(s->mbox, p) != ERR_OK) {
 		pbuf_free(p);
 		return;
 	}
+
+    /* Register event with callback */
+//    API_EVENT(conn, NETCONN_EVT_RCVPLUS, len);
 }
 
 static struct udp_pcb* _ida_lwip_newPcb(struct ida_lwip_sock *sock){
@@ -374,7 +403,7 @@ static struct udp_pcb* _ida_lwip_newPcb(struct ida_lwip_sock *sock){
 
 static int _ida_lwip_socketCreate(){
 	struct ida_lwip_sock *s;
-	sys_mbox_t *mbox;
+	sys_mbox_t *mbox = _ida_lwip_get_mbox();
 	sys_sem_t *sem;
 	PBUF_MONITOR_T *monitor;
 
@@ -474,12 +503,12 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 
 }
 
-static void ida_lwip_socketSupervisorTask(void *p_arg){
+void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
 	(void)p_arg;
 	IDA_LWIP_SOCKET_MGM *msg;
 
 	while(1){
-		sys_arch_mbox_fetch(socket_mgm_queue,(void*)&msg,0);
+		sys_arch_mbox_fetch(&socket_mgm_queue,(void*)&msg,0);
 		if(msg != NULL){
 			switch(msg->type){
 			case SOCKET_MGM_CREATE:
@@ -498,7 +527,7 @@ static void ida_lwip_socketSupervisorTask(void *p_arg){
 				break;
 
 			case SOCKET_MGM_CLOSE:
-//				msg->returnValue = ;
+				msg->returnValue = _ida_free_socket((struct ida_lwip_sock*)msg->data);
 				sys_sem_signal(&(msg->ackSem));
 				break;
 
@@ -510,6 +539,26 @@ static void ida_lwip_socketSupervisorTask(void *p_arg){
 
 		}
 	}
+}
+
+void ida_lwip_init(void){
+
+
+	ida_lwip_initSockets();
+
+	OSTaskCreateExt(ida_lwip_socketSupervisorTask,
+						NULL,
+						&sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE - 1],
+						SOCK_SUPERV_TASK_PRIO,
+						SOCK_SUPERV_TASK_PRIO,
+						&sockSupervTaskStk[0],
+						SOCK_SUPERV_TASK_STACK_SIZE,
+						DEF_NULL,
+						(OS_TASK_OPT_STK_CLR | OS_TASK_OPT_STK_CHK));
+	OSTaskNameSet(5, (INT8U *) "sockSupervServerTask", NULL);
+
+//	sys_thread_new("sockSupervServerTask", ida_lwip_socketSupervisorTask, NULL, SOCK_SUPERV_TASK_STACK_SIZE, SOCK_SUPERV_TASK_PRIO);
+
 }
 
 static int _ida_lwip_socketMgmAlloc(IDA_LWIP_SOCKET_MGM **mgm){
@@ -570,7 +619,7 @@ int ida_lwip_socket(int domain, int type, int protocol)
 
 	msg->type = SOCKET_MGM_CREATE;
 
-	sys_mbox_post(socket_mgm_queue,msg);
+	sys_mbox_post(&socket_mgm_queue,msg);
 	sys_arch_sem_wait(&msg->ackSem,0);
 
 	return _ida_lwip_socketMgmFree(msg);
@@ -588,62 +637,133 @@ int ida_lwip_bind(int s, const struct sockaddr *name, socklen_t namelen)
 	msg->data = (void*)name;
 	msg->dataLen = (u32_t)namelen;
 
-	sys_mbox_post(socket_mgm_queue,msg);
+	sys_mbox_post(&socket_mgm_queue,msg);
 	sys_arch_sem_wait(&msg->ackSem,0);
 
 	return _ida_lwip_socketMgmFree(msg);
 }
 
-ssize_t ida_lwip_recvfromOld(int s, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen)
+
+ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen)
 {
-  struct lwip_sock *sock;
-  ssize_t ret;
+	struct ida_lwip_sock *sock;
+	struct pbuf* p;
+	ssize_t ret;
+	u16_t buflen, copylen, copied;
+	int i;
 
-  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_recvfrom(%d, %p, %"SZT_F", 0x%x, ..)\n", s, mem, len, flags));
-  sock = get_socket(s);
-  if (!sock) {
-    return -1;
-  }
-#if LWIP_TCP
-  if (NETCONNTYPE_GROUP(netconn_type(sock->conn)) == NETCONN_TCP) {
-    ret = lwip_recv_tcp(sock, mem, len, flags);
-    lwip_recv_tcp_from(sock, from, fromlen, "lwip_recvfrom", s, ret);
-    done_socket(sock);
-    return ret;
-  } else
-#endif
-  {
-    u16_t datagram_len = 0;
-    struct iovec vec;
-    struct msghdr msg;
-    err_t err;
-    vec.iov_base = mem;
-    vec.iov_len = len;
-    msg.msg_control = NULL;
-    msg.msg_controllen = 0;
-    msg.msg_flags = 0;
-    msg.msg_iov = &vec;
-    msg.msg_iovlen = 1;
-    msg.msg_name = from;
-    msg.msg_namelen = (fromlen ? *fromlen : 0);
-    err = lwip_recvfrom_udp_raw(sock, flags, &msg, &datagram_len, s);
-    if (err != ERR_OK) {
-      LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_recvfrom[UDP/RAW](%d): buf == NULL, error is \"%s\"!\n",
-                                  s, lwip_strerr(err)));
-      sock_set_errno(sock, err_to_errno(err));
-      free_socket(sock,0);//done_socket(sock);
-      return -1;
-    }
-    ret = (ssize_t)LWIP_MIN(LWIP_MIN(len, datagram_len), SSIZE_MAX);
-    if (fromlen) {
-      *fromlen = msg.msg_namelen;
-    }
-  }
+	sock = get_socket(s);
+	if (sock == NULL) {
+		return -1;
+	}
 
-  sock_set_errno(sock, 0);
-  free_socket(sock,0);//done_socket(sock);
-  return ret;
+	u16_t datagram_len = 0;
+	struct iovec vec;
+	struct msghdr msg;
+	err_t err;
+	vec.iov_base = mem;
+	vec.iov_len = len;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+	msg.msg_iov = &vec;
+	msg.msg_iovlen = 1;
+	msg.msg_name = from;
+	msg.msg_namelen = (fromlen ? *fromlen : 0);
+
+
+	//TODO: POST OR FETCH??
+	if(sys_arch_mbox_tryfetch(sock->mbox, (void*)p) == SYS_ARCH_TIMEOUT) {
+		ida_lwip_close(s);
+		return -1;
+	}
+
+	if(p == NULL) {
+		ida_lwip_close(s);
+		return -1;
+	}
+
+	buflen = p->tot_len;
+
+	copied = 0;
+	/* copy the pbuf payload into the iovs */
+	for (i = 0; (i < msg.msg_iovlen) && (copied < buflen); i++) {
+		u16_t len_left = (u16_t)(buflen - copied);
+		if (msg.msg_iov[i].iov_len > len_left) {
+			copylen = len_left;
+		} else {
+			copylen = (u16_t)msg.msg_iov[i].iov_len;
+		}
+
+		/* copy the contents of the received buffer into
+			the supplied memory buffer */
+		pbuf_copy_partial(p, (u8_t *)msg.msg_iov[i].iov_base, copylen, copied);
+		copied = (u16_t)(copied + copylen);
+	}
+
+	if (datagram_len) {
+		datagram_len = buflen;
+	}
+
+	ret = (ssize_t)LWIP_MIN(LWIP_MIN(len, datagram_len), SSIZE_MAX);
+	if (fromlen) {
+	*fromlen = msg.msg_namelen;
+	}
+
+	ida_lwip_close(s);
+	return ret;
 }
+
+//ssize_t ida_lwip_recvfromOld(int s, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen)
+//{
+//  struct lwip_sock *sock;
+//  ssize_t ret;
+//
+//  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_recvfrom(%d, %p, %"SZT_F", 0x%x, ..)\n", s, mem, len, flags));
+//  sock = get_socket(s);
+//  if (!sock) {
+//    return -1;
+//  }
+//#if LWIP_TCP
+//  if (NETCONNTYPE_GROUP(netconn_type(sock->conn)) == NETCONN_TCP) {
+//    ret = lwip_recv_tcp(sock, mem, len, flags);
+//    lwip_recv_tcp_from(sock, from, fromlen, "lwip_recvfrom", s, ret);
+//    done_socket(sock);
+//    return ret;
+//  } else
+//#endif
+//  {
+//    u16_t datagram_len = 0;
+//    struct iovec vec;
+//    struct msghdr msg;
+//    err_t err;
+//    vec.iov_base = mem;
+//    vec.iov_len = len;
+//    msg.msg_control = NULL;
+//    msg.msg_controllen = 0;
+//    msg.msg_flags = 0;
+//    msg.msg_iov = &vec;
+//    msg.msg_iovlen = 1;
+//    msg.msg_name = from;
+//    msg.msg_namelen = (fromlen ? *fromlen : 0);
+//    err = lwip_recvfrom_udp_raw(sock, flags, &msg, &datagram_len, s);
+//    if (err != ERR_OK) {
+//      LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_recvfrom[UDP/RAW](%d): buf == NULL, error is \"%s\"!\n",
+//                                  s, lwip_strerr(err)));
+//      sock_set_errno(sock, err_to_errno(err));
+//      free_socket(sock,0);//done_socket(sock);
+//      return -1;
+//    }
+//    ret = (ssize_t)LWIP_MIN(LWIP_MIN(len, datagram_len), SSIZE_MAX);
+//    if (fromlen) {
+//      *fromlen = msg.msg_namelen;
+//    }
+//  }
+//
+//  sock_set_errno(sock, 0);
+//  free_socket(sock,0);//done_socket(sock);
+//  return ret;
+//}
 
 ssize_t
 ida_lwip_sendto(int s, const void *data, size_t size, int flags,
@@ -779,46 +899,91 @@ free_socket(struct lwip_sock *sock, int is_tcp)
   }
 }
 
+static int _ida_free_socket(struct ida_lwip_sock *sock)
+{
+	/* Protect socket array */
+	sock->id=0;
+	sock->prio=0;
+	sys_sem_free(sock->sem);
+	sys_mbox_free(sock->mbox);
+	ida_monitor_free(sock->monitor);
+
+	if(sock->sem != NULL && sock->mbox != NULL && sock->monitor != NULL){ //todo: does this work?
+			return -1;
+	}
+
+	/* detach it from the free list */
+	socketFreeList = sock->next;
+
+	/* put socket back into free list*/
+	socketFreeList = sock;
+
+	return 0;
+}
+
 
 
 int
 ida_lwip_close(int s)
 {
-  struct lwip_sock *sock;
-  int is_tcp = 0;
-  err_t err;
+	IDA_LWIP_SOCKET_MGM *msg = NULL;
+	struct ida_lwip_sock *sock;
 
-  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_close(%d)\n", s));
+	sock = get_socket(s);
+	if (!sock) {
+		return -1;
+	}
 
-  sock = get_socket(s);
-  if (!sock) {
-    return -1;
-  }
+	if(_ida_lwip_socketMgmAlloc(&msg) < 0)
+		return -1;
 
-  if (sock->conn != NULL) {
-    is_tcp = NETCONNTYPE_GROUP(netconn_type(sock->conn)) == NETCONN_TCP;
-  } else {
-    LWIP_ASSERT("sock->lastdata == NULL", sock->lastdata.pbuf == NULL);
-  }
+	msg->type = SOCKET_MGM_CLOSE;
+	msg->socket = s;
+	msg->data = sock;
 
-#if LWIP_IGMP
-  /* drop all possibly joined IGMP memberships */
-  lwip_socket_drop_registered_memberships(s);
-#endif /* LWIP_IGMP */
-#if LWIP_IPV6_MLD
-  /* drop all possibly joined MLD6 memberships */
-  lwip_socket_drop_registered_mld6_memberships(s);
-#endif /* LWIP_IPV6_MLD */
+	sys_mbox_post(&socket_mgm_queue,msg);
+	sys_arch_sem_wait(&msg->ackSem,0);
 
-  err = netconn_prepare_delete(sock->conn);
-  if (err != ERR_OK) {
-    sock_set_errno(sock, err_to_errno(err));
-    return -1;
-  }
+	return _ida_lwip_socketMgmFree(msg);
 
-  free_socket(sock, is_tcp);
-  set_errno(0);
-  return 0;
+
+
+
+//  struct lwip_sock *sock;
+//  int is_tcp = 0;
+//  err_t err;
+//
+//  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_close(%d)\n", s));
+//
+//  sock = get_socket(s);
+//  if (!sock) {
+//    return -1;
+//  }
+//
+//  if (sock->conn != NULL) {
+//    is_tcp = NETCONNTYPE_GROUP(netconn_type(sock->conn)) == NETCONN_TCP;
+//  } else {
+//    LWIP_ASSERT("sock->lastdata == NULL", sock->lastdata.pbuf == NULL);
+//  }
+//
+//#if LWIP_IGMP
+//  /* drop all possibly joined IGMP memberships */
+//  lwip_socket_drop_registered_memberships(s);
+//#endif /* LWIP_IGMP */
+//#if LWIP_IPV6_MLD
+//  /* drop all possibly joined MLD6 memberships */
+//  lwip_socket_drop_registered_mld6_memberships(s);
+//#endif /* LWIP_IPV6_MLD */
+//
+//  err = netconn_prepare_delete(sock->conn);
+//  if (err != ERR_OK) {
+//    sock_set_errno(sock, err_to_errno(err));
+//    return -1;
+//  }
+//
+//  free_socket(sock, is_tcp);
+//  set_errno(0);
+//  return 0;
 }
 
 int
@@ -1224,71 +1389,3 @@ ida_lwip_inet_pton(int af, const char *src, void *dst)
   return err;
 }
 
-ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen)
-{
-	struct ida_lwip_sock *sock;
-	struct pbuf* p;
-	ssize_t ret;
-	u16_t buflen, copylen, copied;
-	int i;
-
-	sock = get_socket(s);
-	if (sock == NULL) {
-		return -1;
-	}
-
-	u16_t datagram_len = 0;
-	struct iovec vec;
-	struct msghdr msg;
-	err_t err;
-	vec.iov_base = mem;
-	vec.iov_len = len;
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
-	msg.msg_iov = &vec;
-	msg.msg_iovlen = 1;
-	msg.msg_name = from;
-	msg.msg_namelen = (fromlen ? *fromlen : 0);
-
-//  void *buf = NULL;
-//  u16_t len;
-
-	if(sys_arch_mbox_tryfetch(sock->mbox, &p) == SYS_ARCH_TIMEOUT) {
-		return -1;
-	}
-
-	if(p == NULL) {
-		return -1;
-	}
-
-	buflen = p->tot_len;
-
-	copied = 0;
-	/* copy the pbuf payload into the iovs */
-	for (i = 0; (i < msg.msg_iovlen) && (copied < buflen); i++) {
-		u16_t len_left = (u16_t)(buflen - copied);
-		if (msg.msg_iov[i].iov_len > len_left) {
-			copylen = len_left;
-		} else {
-			copylen = (u16_t)msg.msg_iov[i].iov_len;
-		}
-
-		/* copy the contents of the received buffer into
-			the supplied memory buffer */
-		pbuf_copy_partial(p, (u8_t *)msg.msg_iov[i].iov_base, copylen, copied);
-		copied = (u16_t)(copied + copylen);
-	}
-
-	if (datagram_len) {
-		datagram_len = buflen;
-	}
-
-	ret = (ssize_t)LWIP_MIN(LWIP_MIN(len, datagram_len), SSIZE_MAX);
-	if (fromlen) {
-	*fromlen = msg.msg_namelen;
-	}
-
-	free_socket(sock,0);//done_socket(sock);
-	return ret;
-}
