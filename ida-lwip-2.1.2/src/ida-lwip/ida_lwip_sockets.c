@@ -453,9 +453,12 @@ static int _ida_lwip_socketCreate(){
 
 static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t namelen){
 	struct ida_lwip_sock *sock;
+	struct sockaddr_in *name_in = (struct sockaddr_in *)&name;
 	ip_addr_t local_addr;
 	u16_t local_port;
-	struct udp_pcb *pcb;
+	struct udp_pcb *pcb, *pcb_i;
+
+	ip_addr_set_ipaddr(&local_addr, (ip_addr_t*)&name_in->sin_addr);
 
 	sock = get_socket(s);
 	if (sock == NULL){
@@ -479,13 +482,13 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 		return -1;
 
 	} else {
-	    for (pcb = udp_pcbs; pcb != NULL; pcb = pcb->next) {
-	      if (pcb != pcb) {
+	    for (pcb_i = udp_pcbs; pcb_i != NULL; pcb_i = pcb_i->next) {
+	      if (pcb_i != pcb) {
 	          /* By default, we don't allow to bind to a port that any other udp
 	           PCB is already bound to, unless *all* PCBs with that port have the
 	           REUSEADDR flag set. */
 	          /* port matches that of PCB in list and REUSEADDR not set -> reject */
-	          if ((pcb->local_port == local_port) && (ip_addr_cmp(&pcb->local_ip, &local_addr) || ip_addr_isany(&local_addr) ||  ip_addr_isany(&pcb->local_ip))) {
+	          if ((pcb_i->local_port == local_port) && (ip_addr_cmp(&pcb_i->local_ip, &local_addr) || ip_addr_isany(&local_addr) ||  ip_addr_isany(&pcb_i->local_ip))) {
 	              /* other PCB already binds to this local IP and port */
 	              //LWIP_DEBUGF(UDP_DEBUG, ("udp_bind: local port %"U16_F" already bound by another pcb\n", port));
 
