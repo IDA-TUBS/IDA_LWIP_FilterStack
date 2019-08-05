@@ -105,6 +105,8 @@ void XEmacPs_EnableChecksumOffload(xemacpsif_s *xemacpsif);
 void XEmacPs_initPtp(xemacpsif_s *xemacpsif);
 void XEmacPs_GetRxTimestamp(void);
 void XEmacPs_GetTxTimestamp(void);
+void XEmacPs_GetDelayReqRxTimestamp(void);
+void XEmacPs_GetDelayReqTxTimestamp(void);
 u32 XEmacPs_TsuCalcClk(u32 Freq);
 void XEmacPs_WriteTsuIncr(u32 ns, u32 subns);
 XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void);
@@ -119,6 +121,7 @@ void ETH_PTPTime_AdjFreq(int32_t Adj);
 void ETH_PTPTime_AdjOffset(int32_t Adj);
 void ETH_PTPTime_SetTime(struct ptptime_t * timestamp);
 void ETH_PTPTime_GetTime(struct ptptime_t* timestamp);
+void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive);
 
 
 #ifdef __cplusplus

@@ -17,6 +17,9 @@
 #include "netif/xemacpsif.h"
 #include "netif/xadapter.h"
 
+// Includes for use with ptpd
+#include "ptpd.h"
+
 #if XPAR_EMACPS_TSU_ENABLE
 /*
  ************************************************************************************************
@@ -62,6 +65,7 @@ sys_sem_t sem_tx_ptp_available;
 XEmacPs_Tsu_incr Ptp_TSU_base_incr;
 
 
+extern PtpClock ptpClock;
 
 /*****************************************************************************/
 /**
@@ -131,15 +135,21 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 
 
 	regVal = XEmacPs_ReadReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_NWCTRL_OFFSET);
-
-	/* Enable One Step Sync */
+#ifdef TSU_OSSM
+	/* Enable One Step Sync Mode */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_NWCTRL_OFFSET, regVal | XEMACPS_NWCTRL_OSSM_MASK);
-
+#endif
 	/*Enable PTP Sync Received Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPSRX_MASK);
 
+	/*Enable PTP Delay_req Received Interrupt */
+	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPDRRX_MASK);
+
 	/* Enable PTP Sync Transmitted Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPPSRX_MASK);
+
+	/*Enable PTP Delay_req Transmitted Interrupt */
+	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPDRTX_MASK);
 
 	/* Enable PTP TSU Compare Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTP_CMP_MASK);
@@ -156,14 +166,14 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 /*****************************************************************************/
 /**
  * Reads tsu_ptp_rx_sec and tsu_ptp_rx_nsec Registers from GEM3.
- * An Interrupt is raised when an PTP Event Crosses the MII Boundaries.
+ * An Interrupt is raised when an PTP Sync Frame Event Crosses the MII Boundaries.
  * The ISR calls this function to store the received timestamps in a ts buffer.
  *
  * @param	None.
  *
  * @return	None.
  *
- * @note	None.
+ * @note	For use with ptp slave.
  *
  ******************************************************************************/
 void XEmacPs_GetRxTimestamp(void) {
@@ -174,11 +184,69 @@ void XEmacPs_GetRxTimestamp(void) {
 
 /*****************************************************************************/
 /**
+ * Reads tsu_ptp_rx_sec and tsu_ptp_rx_nsec Registers from GEM3.
+ * An Interrupt is raised when an PTP Delay Req is received
+ * and crosses the MII Boundaries.
+ * The ISR calls this function to store the received timestamps in the ptpClock instance.
+ * It will be processed in ptpd handleDelayReq()
+ * TODO: Can we use this TS, oder do we have to normalize it?
+ *
+ * @param	None.
+ *
+ * @return	None.
+ *
+ * @note	For use with ptp master.
+ *
+ ******************************************************************************/
+void XEmacPs_GetDelayReqRxTimestamp(void) {
+	TimeInternal ptpTimestamp;
+	ptpTimestamp.seconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_SEC_OFFSET);
+	ptpTimestamp.nanoseconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_NSEC_OFFSET);
+
+
+	ptpClock.timestamp_delayReqRecieve = ptpTimestamp;
+}
+
+
+/*****************************************************************************/
+/**
+ * Reads tsu_ptp_rx_sec and tsu_ptp_rx_nsec Registers from GEM3.
+ * An Interrupt is raised when an PTP Delay Req is transmitted and
+ * crosses the MII Boundaries.
+ * The ISR calls this function to store the received timestamps in the ptpClock instance.
+ * It will be processed in ptpd handleDelayReq()
+ * TODO: Can we use this TS, oder do we have to normalize it?
+ *
+ * @param	None.
+ *
+ * @return	None.
+ *
+ * @note	For use with ptp slave.
+ *
+ ******************************************************************************/
+void XEmacPs_GetDelayReqTxTimestamp(void) {
+	TimeInternal ptpTimestamp;
+
+	ptpTimestamp.seconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_SEC_OFFSET);
+	ptpTimestamp.nanoseconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_NSEC_OFFSET);
+
+	if (ptpTimestamp.seconds != 0) {
+		addTime(&ptpTimestamp, &ptpTimestamp, &ptpClock.outboundLatency);
+		ptpClock.timestamp_delayReqSend = ptpTimestamp;
+	}
+
+}
+
+
+/*****************************************************************************/
+/**
 *	Read the PTP Tx Capture register and write them to the Tx Timestamp buffer
 *
 * @param N/A
 *
-* @return N/A
+* @return
+*
+* @note For use with ptp master
 *
 ******************************************************************************/
 void XEmacPs_GetTxTimestamp(void) {

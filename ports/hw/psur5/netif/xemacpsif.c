@@ -342,7 +342,7 @@ static err_t low_level_init(struct netif *netif)
 #endif
 
 #if LWIP_IGMP
-	netif->igmp_mac_filter = xemacpsif_mac_filter_update;
+	netif->igmp_mac_filter = (netif_igmp_mac_filter_fn) xemacpsif_mac_filter_update;
 #endif
 
 #if LWIP_IPV6 && LWIP_IPV6_MLD
@@ -365,7 +365,6 @@ static err_t low_level_init(struct netif *netif)
 #endif
 	/* obtain config of this emac */
 	mac_config = (XEmacPs_Config *)xemacps_lookup_config((unsigned)(UINTPTR)netif->state);
-	//mac_config = (XEmacPs_Config *)xemacps_lookup_config((unsigned)(UINTPTR)XPAR_PSU_ETHERNET_3_BASEADDR);
 
 
 	status = XEmacPs_CfgInitialize(&xemacpsif->emacps, mac_config,
@@ -738,7 +737,7 @@ err_t xemacpsif_init(struct netif *netif)
 
 	netif->name[0] = IFNAME0;
 	netif->name[1] = IFNAME1;
-	netif->output = xemacpsif_output;
+	netif->output = (netif_output_fn) xemacpsif_output;
 	netif->linkoutput = low_level_output;
 #if LWIP_IPV6
 	netif->output_ip6 = ethip6_output;

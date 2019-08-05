@@ -484,7 +484,7 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
 #define XEMACPS_IXR_PTPPDRTX_MASK   0x01000000U /**< PTP Pdelay_req
 						     transmitted */
 #define XEMACPS_IXR_PTPSTX_MASK     0x00800000U /**< PTP Sync transmitted */
-#define XEMACPS_IXR_PTPDRTX_MASK    0x00400000U /**< PTP Delay_req transmitted
+#define XEMACPS_IXR_PTPDRTX_MASK    0x00100000U /**< PTP Delay_req transmitted
 						*/
 #define XEMACPS_IXR_PTPPSRX_MASK    0x00200000U /**< PTP Psync received */
 #define XEMACPS_IXR_PTPPDRRX_MASK   0x00100000U /**< PTP Pdelay_req received */
