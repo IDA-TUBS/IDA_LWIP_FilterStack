@@ -502,6 +502,10 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 	ip_addr_set_ipaddr(&pcb->local_ip, &local_addr);
 	pcb->local_port = local_port;
 
+    /* place the PCB on the active list if not already there */
+    pcb->next = udp_pcbs;
+    udp_pcbs = pcb;
+
 	return 0;
 
 }
