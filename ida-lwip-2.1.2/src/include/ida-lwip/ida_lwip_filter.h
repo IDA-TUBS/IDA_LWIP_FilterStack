@@ -27,7 +27,15 @@ typedef struct{
 	sys_sem_t act_sem;
 }IDA_LWIP_FILTER_QUEUE;
 
-err_t ida_filter_enqueue_pkt(struct pbuf *p, u8_t prio);
+typedef struct{
+	enum {UDP, RAW} type;
+	void *data;
+	size_t size;
+	int socket;
+	void *to;
+}IDA_LWIP_TX_REQ;
+
+err_t ida_filter_enqueue_pkt(void *data, u8_t prio, u8_t direction);
 void ida_filter_init(struct netif *netif);
 
 

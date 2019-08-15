@@ -17,6 +17,10 @@
 #define IGMP_DEL_MAC_FILTER            NETIF_DEL_MAC_FILTER
 #define IGMP_ADD_MAC_FILTER            NETIF_ADD_MAC_FILTER
 
+#ifndef IDA_LWIP_MAX_IGMP_GROUPS
+#define IDA_LWIP_MAX_IGMP_GROUPS	20
+#endif
+
 /**
  * igmp group structure - there is
  * a list of groups for each interface

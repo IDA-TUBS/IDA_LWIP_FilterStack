@@ -9,7 +9,7 @@
 #include "ida-lwip/ida_lwip_igmp.h"
 #include "lwip/ip.h"
 
-struct igmp_group *igmp_groups;
+struct igmp_group igmp_groups[IDA_LWIP_MAX_IGMP_GROUPS];
 
 /**
  * Search for a group in the netif's igmp group list
@@ -22,7 +22,7 @@ struct igmp_group *igmp_groups;
 struct igmp_group *
 ida_lwip_igmp_lookfor_group(struct netif *ifp, const ip4_addr_t *addr)
 {
-  struct igmp_group *group = igmp_groups;			// todo: thread-safe ?? -> makes use of netif->client_data
+  struct igmp_group *group = &igmp_groups[0];			// todo: thread-safe ?? -> makes use of netif->client_data
 
   while (group != NULL) {
     if (ip4_addr_cmp(&(group->group_address), addr)) {

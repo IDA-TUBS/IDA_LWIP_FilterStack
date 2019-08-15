@@ -167,7 +167,7 @@ ethernet_input(struct pbuf *p, struct netif *netif)
         return ERR_OK;
       } else {
         /* pass to IP layer */
-    	ida_filter_enqueue_pkt(p, prio);
+    	ida_filter_enqueue_pkt((void*)p, prio, 1);
         return ERR_OK;
       }
       break;

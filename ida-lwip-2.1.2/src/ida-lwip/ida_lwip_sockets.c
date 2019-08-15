@@ -22,6 +22,7 @@
 #include "lwip/mld6.h"
 
 #include "ida-lwip/ida_lwip_monitor.h"
+#include "ida-lwip/ida_lwip_filter.h"
 
 #if LWIP_CHECKSUM_ON_COPY
 #include "lwip/inet_chksum.h"
@@ -262,7 +263,7 @@ sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_
 #define IPTYPE IPADDR_TYPE_V4
 
 #define SOCK_SUPERV_TASK_STACK_SIZE 1024
-#define SOCK_SUPERV_TASK_PRIO 10 //same as dummy task
+#define SOCK_SUPERV_TASK_PRIO 11 //same as dummy task
 static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
 
 typedef enum {
@@ -291,7 +292,7 @@ static struct ida_lwip_sock *socketFreeList;
 static sys_mbox_t socket_msg_queues[NUM_SOCKETS];
 static int socket_msg_queue_counter = 0;
 /*functions*/
-static struct ida_lwip_sock *get_socket(int fd);
+struct ida_lwip_sock *get_socket(int fd);
 static err_t lwip_recvfrom_udp_raw(struct lwip_sock *sock, int flags, struct msghdr *msg, u16_t *datagram_len, int dbg_s);
 static void free_socket(struct lwip_sock *sock, int is_tcp);
 static int _ida_free_socket(struct ida_lwip_sock *sock);
@@ -477,36 +478,43 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 		return -1;
 	}
 
-	if(local_port == 0){
+	sock->pcb = pcb;
 
+	if(udp_bind(pcb, &local_addr, local_port) != ERR_OK){
 		return -1;
-
-	} else {
-	    for (pcb_i = udp_pcbs; pcb_i != NULL; pcb_i = pcb_i->next) {
-	      if (pcb_i != pcb) {
-	          /* By default, we don't allow to bind to a port that any other udp
-	           PCB is already bound to, unless *all* PCBs with that port have the
-	           REUSEADDR flag set. */
-	          /* port matches that of PCB in list and REUSEADDR not set -> reject */
-	          if ((pcb_i->local_port == local_port) && (ip_addr_cmp(&pcb_i->local_ip, &local_addr) || ip_addr_isany(&local_addr) ||  ip_addr_isany(&pcb_i->local_ip))) {
-	              /* other PCB already binds to this local IP and port */
-	              //LWIP_DEBUGF(UDP_DEBUG, ("udp_bind: local port %"U16_F" already bound by another pcb\n", port));
-
-	            return -1;
-	         }
-	       }
-	     }
-	  }
-	//todo: check whether port already bound to other pcbs necessary?
-
-	ip_addr_set_ipaddr(&pcb->local_ip, &local_addr);
-	pcb->local_port = local_port;
-
-    /* place the PCB on the active list if not already there */
-    pcb->next = udp_pcbs;
-    udp_pcbs = pcb;
+	}
 
 	return 0;
+//	if(local_port == 0){
+//
+//		return -1;
+//
+//	} else {
+//	    for (pcb_i = udp_pcbs; pcb_i != NULL; pcb_i = pcb_i->next) {
+//	      if (pcb_i != pcb) {
+//	          /* By default, we don't allow to bind to a port that any other udp
+//	           PCB is already bound to, unless *all* PCBs with that port have the
+//	           REUSEADDR flag set. */
+//	          /* port matches that of PCB in list and REUSEADDR not set -> reject */
+//	          if ((pcb_i->local_port == local_port) && (ip_addr_cmp(&pcb_i->local_ip, &local_addr) || ip_addr_isany(&local_addr) ||  ip_addr_isany(&pcb_i->local_ip))) {
+//	              /* other PCB already binds to this local IP and port */
+//	              //LWIP_DEBUGF(UDP_DEBUG, ("udp_bind: local port %"U16_F" already bound by another pcb\n", port));
+//
+//	            return -1;
+//	         }
+//	       }
+//	     }
+//	  }
+//	//todo: check whether port already bound to other pcbs necessary?
+//
+//	ip_addr_set_ipaddr(&pcb->local_ip, &local_addr);
+//	pcb->local_port = local_port;
+//
+//    /* place the PCB on the active list if not already there */
+//    pcb->next = udp_pcbs;
+//    udp_pcbs = pcb;
+
+//	return 0;
 
 }
 
@@ -592,7 +600,7 @@ static int _ida_lwip_socketMgmFree(IDA_LWIP_SOCKET_MGM *mgm){
 	return result;
 }
 
-static struct ida_lwip_sock *get_socket(int fd){
+struct ida_lwip_sock *get_socket(int fd){
 	//todo: Check parameters <-- done?
 	struct ida_lwip_sock *sock = &sockets[fd];
 
@@ -678,7 +686,7 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
 	msg.msg_name = from;
 	msg.msg_namelen = (fromlen ? *fromlen : 0);
 
-	sys_arch_mbox_fetch(sock->mbox, (void*)p, SYS_ARCH_TIMEOUT);
+	sys_arch_mbox_fetch(sock->mbox, (void*)p, 0);
 	//TODO: POST OR FETCH??
 //	if(sys_arch_mbox_tryfetch(sock->mbox, (void*)p) == SYS_ARCH_TIMEOUT) {
 //		ida_lwip_close(s);
@@ -776,62 +784,32 @@ ssize_t
 ida_lwip_sendto(int s, const void *data, size_t size, int flags,
             const struct sockaddr *to, socklen_t tolen)
 {
-  struct lwip_sock *sock;
-  err_t err;
-  u16_t short_size;
-  u16_t remote_port;
-  struct netbuf buf;
+  struct ida_lwip_sock *sock;
+
+  if (size > IDA_LWIP_MAX_MSS) {
+	  return -1;
+  }
+
+  IDA_LWIP_TX_REQ txReq;
+  txReq.type = UDP;
+  txReq.data = data;
+  txReq.size = size;
+  txReq.to = (void*)to;
 
   sock = get_socket(s);
   if (!sock) {
     return -1;
   }
 
-  if (size > LWIP_MIN(0xFFFF, SSIZE_MAX)) {
-    /* cannot fit into one datagram (at least for us) */
-    sock_set_errno(sock, EMSGSIZE);
-    return -1;
-  }
-  short_size = (u16_t)size;
-  LWIP_UNUSED_ARG(tolen);
+  u8_t prio = sock->prio;
 
-  /* initialize a buffer */
-  buf.p = buf.ptr = NULL;
-  if (to) {
-    SOCKADDR_TO_IPADDR_PORT(to, &buf.addr, remote_port);
-  } else {
-    remote_port = 0;
-    ip_addr_set_any(NETCONNTYPE_ISIPV6(netconn_type(sock->conn)), &buf.addr);
-  }
-  netbuf_fromport(&buf) = remote_port;
+  ida_filter_enqueue_pkt((void*)&txReq, prio, 0);
 
+  sys_arch_sem_wait(sock->sem, 0);
 
-  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_sendto(%d, data=%p, short_size=%"U16_F", flags=0x%x to=",
-                              s, data, short_size, flags));
-  ip_addr_debug_print_val(SOCKETS_DEBUG, buf.addr);
-  LWIP_DEBUGF(SOCKETS_DEBUG, (" port=%"U16_F"\n", remote_port));
-
-  /* make the buffer point to the data that should be sent */
-  err = netbuf_ref(&buf, data, short_size);
-  if (err == ERR_OK) {
-#if LWIP_IPV4 && LWIP_IPV6
-    /* Dual-stack: Unmap IPv4 mapped IPv6 addresses */
-    if (IP_IS_V6_VAL(buf.addr) && ip6_addr_isipv4mappedipv6(ip_2_ip6(&buf.addr))) {
-      unmap_ipv4_mapped_ipv6(ip_2_ip4(&buf.addr), ip_2_ip6(&buf.addr));
-      IP_SET_TYPE_VAL(buf.addr, IPADDR_TYPE_V4);
-    }
-#endif /* LWIP_IPV4 && LWIP_IPV6 */
-
-    /* send the data */
-    err = netconn_send(sock->conn, &buf);
-  }
-
-  /* deallocated the buffer */
-  netbuf_free(&buf);
-
-  sock_set_errno(sock, err_to_errno(err));
-  return (err == ERR_OK ? short_size : -1);
+  return sock->err == ERR_OK ? size : -1;
 }
+
 
 /** Free a socket (under lock)
  *
