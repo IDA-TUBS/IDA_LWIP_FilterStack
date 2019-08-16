@@ -408,7 +408,7 @@ static err_t low_level_init(struct netif *netif)
 
 
 #if LWIP_FULL_CSUM_OFFLOAD_RX && LWIP_FULL_CSUM_OFFLOAD_TX
-	XEmacPs_EnableChecksumOffload(xemacpsif);
+	XEmacPs_EnableChecksumOffload(&xemacpsif->emacps);
 #endif
 
 

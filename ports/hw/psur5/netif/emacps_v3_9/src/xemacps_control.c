@@ -69,6 +69,34 @@
 
 /************************** Variable Definitions *****************************/
 
+/*****************************************************************************/
+/**
+ * Write to network_config and dma_config register
+ * to enable Rx and Tx Checksum Offloading.
+ * LwIP still has to be informed about the crc offload
+ *
+ * @param xemacpsif_s *xemacpsif instance to be worked on
+ *
+ * @note		None.
+ *
+ ******************************************************************************/
+void XEmacPs_EnableChecksumOffload(XEmacPs *InstancePtr) {
+
+	u32 Reg;
+
+	//Read network_config Register
+	Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress,XEMACPS_NWCFG_OFFSET);
+
+	// Enable Rx Checksum Offload in network_config reg
+	XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_NWCFG_OFFSET, Reg | XEMACPS_NWCFG_RXCHKSUMEN_MASK);
+
+	// Read dma_config register
+	Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress, XEMACPS_DMACR_OFFSET);
+
+	// Enable Tx Checksum Offload in dma_config reg
+	XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_DMACR_OFFSET, Reg | XEMACPS_DMACR_TCPCKSUM_MASK);
+
+}
 
 /*****************************************************************************/
 /**

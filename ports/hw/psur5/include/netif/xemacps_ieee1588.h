@@ -101,7 +101,6 @@ typedef struct {
 /************************** Function Prototypes ******************************/
 
 void XEmacPs_InitTsu(void);
-void XEmacPs_EnableChecksumOffload(xemacpsif_s *xemacpsif);
 void XEmacPs_initPtp(xemacpsif_s *xemacpsif);
 void XEmacPs_GetRxTimestamp(void);
 void XEmacPs_GetTxTimestamp(void);
