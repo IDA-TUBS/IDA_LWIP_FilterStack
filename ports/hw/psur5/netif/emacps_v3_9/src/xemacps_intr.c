@@ -126,7 +126,7 @@ LONG XEmacPs_SetHandler(XEmacPs *InstancePtr, u32 HandlerType,
 		InstancePtr->ErrorRef = CallBackRef;
 		break;
 
-#ifdef XPAR_EMACPS_TSU_ENABLE
+#if XPAR_EMACPS_TSU_ENABLE == 1
 	case XEMACPS_HANDLER_TSU_COMP:
 		Status = (LONG)(XST_SUCCESS);
 		InstancePtr->TSUCompHandler = ((XEmacPs_Handler)(void *)FuncPointer);
@@ -134,7 +134,7 @@ LONG XEmacPs_SetHandler(XEmacPs *InstancePtr, u32 HandlerType,
 		break;
 #endif
 
-#ifdef XPAR_EMACPS_PPS_IRQ_ENABLE
+#if XPAR_EMACPS_PPS_IRQ_ENABLE == 1
 	case XEMACPS_HANDLER_PPS_IRQ:
 		Status = (LONG)(XST_SUCCESS);
 		InstancePtr->PpsIrqHandler = ((XEmacPs_Handler)(void *)FuncPointer);

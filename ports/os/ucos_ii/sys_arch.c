@@ -56,21 +56,6 @@
 
 #include "arch/cc.h"
 
-#define LWIP_SYS_ARCH_MBOX_SIZE					DEFAULT_MBOX_SIZE
-#define LWIP_SYS_ARCH_NUMBER_OF_MBOXES			10
-
-#define LWIP_SYS_ARCH_TOTAL_STACK_SIZE 2048
-
-#define LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES		20
-
-#if LWIP_STATS > 0 && SYS_STATS > 0
-#define LWIP_SYS_ARCH_STATS_INCR_ERR(STAT)		STAT##.err++;
-
-
-#else
-#define LWIP_SYS_ARCH_STATS_INCR_ERR(STAT)
-#endif
-
 struct sys_sem{
 	OS_EVENT *ossem;
 	void* next;

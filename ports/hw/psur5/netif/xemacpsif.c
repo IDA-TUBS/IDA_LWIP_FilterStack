@@ -60,7 +60,11 @@
 #include "lwip/pbuf.h"
 #include "lwip/sys.h"
 #include "lwip/stats.h"
+#ifdef IDA_LWIP
+#include "ida-lwip/ida_lwip_igmp.h"
+#else
 #include "lwip/igmp.h"
+#endif
 
 #include "netif/etharp.h"
 #include "netif/xemacpsif.h"
@@ -81,7 +85,7 @@
 #define IFNAME0 't'
 #define IFNAME1 'e'
 
-#if LWIP_IGMP
+#if LWIP_IGMP || defined(IDA_LWIP)
 static err_t xemacpsif_mac_filter_update (struct netif *netif,
 							ip_addr_t *group, u8_t action);
 
@@ -341,7 +345,7 @@ static err_t low_level_init(struct netif *netif)
 	netif->mtu = XEMACPS_MTU - XEMACPS_HDR_SIZE;
 #endif
 
-#if LWIP_IGMP
+#if LWIP_IGMP || defined(IDA_LWIP)
 	netif->igmp_mac_filter = (netif_igmp_mac_filter_fn) xemacpsif_mac_filter_update;
 #endif
 
@@ -356,7 +360,7 @@ static err_t low_level_init(struct netif *netif)
 	netif->flags |= NETIF_FLAG_MLD6;
 #endif
 
-#if LWIP_IGMP
+#if LWIP_IGMP || defined(IDA_LWIP)
 	netif->flags |= NETIF_FLAG_IGMP;
 #endif
 
@@ -404,7 +408,7 @@ static err_t low_level_init(struct netif *netif)
 
 
 #if LWIP_FULL_CSUM_OFFLOAD_RX && LWIP_FULL_CSUM_OFFLOAD_TX
-	XEmacPs_EnableChecksumOffload(xemacpsif);
+	XEmacPs_EnableChecksumOffload(&xemacpsif->emacps);
 #endif
 
 
@@ -591,7 +595,7 @@ static err_t xemacpsif_mld6_mac_filter_update (struct netif *netif, ip_addr_t *g
 }
 #endif
 
-#if LWIP_IGMP
+#if LWIP_IGMP || defined(IDA_LWIP)
 static void xemacpsif_mac_hash_update (struct netif *netif, u8_t *ip_addr,
 		u8_t action)
 {
