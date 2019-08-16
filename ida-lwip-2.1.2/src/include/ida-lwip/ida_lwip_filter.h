@@ -33,6 +33,7 @@ typedef struct{
 	size_t size;
 	int socket;
 	void *to;
+	int err;
 }IDA_LWIP_TX_REQ;
 
 err_t ida_filter_enqueue_pkt(void *data, u8_t prio, u8_t direction);

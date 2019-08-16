@@ -72,7 +72,6 @@ struct ida_lwip_sock{
 	struct ida_lwip_sock *next;
 	PBUF_MONITOR_T *monitor;
 	struct udp_pcb *pcb;
-	int	err;
 };
 
 /** Contains all internal pointers and states used for a socket */

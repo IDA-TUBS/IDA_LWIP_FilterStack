@@ -795,6 +795,8 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
   txReq.data = data;
   txReq.size = size;
   txReq.to = (void*)to;
+  txReq.socket = s;
+  txReq.err = ERR_OK;
 
   sock = get_socket(s);
   if (!sock) {
@@ -807,7 +809,7 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
 
   sys_arch_sem_wait(sock->sem, 0);
 
-  return sock->err == ERR_OK ? size : -1;
+  return txReq.err == ERR_OK ? size : -1;
 }
 
 

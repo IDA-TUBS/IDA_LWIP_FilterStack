@@ -131,12 +131,12 @@ static void _ida_filter_tx_thread(void* p_arg){
 						if (to) {
 							addr.addr = to->sin_addr.s_addr;
 							remote_port = lwip_ntohs(to->sin_port);
-							sock->err = udp_sendto_if(sock->pcb, p, &addr, remote_port, netif_local);
+							txReq->err = udp_sendto_if(sock->pcb, p, &addr, remote_port, netif_local);
 						} else {
-							sock->err = udp_sendto_if(sock->pcb, p, &sock->pcb->remote_ip, sock->pcb->remote_port, netif_local);
+							txReq->err = udp_sendto_if(sock->pcb, p, &sock->pcb->remote_ip, sock->pcb->remote_port, netif_local);
 						}
 					} else {
-						sock->err = ERR_MEM;
+						txReq->err = ERR_MEM;
 					}
 					sys_sem_signal(sock->sem);
 				} else {
