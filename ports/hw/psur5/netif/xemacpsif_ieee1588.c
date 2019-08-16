@@ -7,6 +7,7 @@
  Description : PTP IEEE 1588 Functionality in Xilinx EMacPS
  ============================================================================
  */
+
 #include "stdio.h"
 #include "xparameters.h"
 #include "xparameters_ps.h"	/* defines XPAR values */
@@ -17,10 +18,10 @@
 #include "netif/xemacpsif.h"
 #include "netif/xadapter.h"
 
+#if XPAR_EMACPS_TSU_ENABLE == 1
+
 // Includes for use with ptpd
 #include "ptpd.h"
-
-#if XPAR_EMACPS_TSU_ENABLE
 /*
  ************************************************************************************************
  *                                          Defines
@@ -66,35 +67,6 @@ XEmacPs_Tsu_incr Ptp_TSU_base_incr;
 
 
 extern PtpClock ptpClock;
-
-/*****************************************************************************/
-/**
- * Write to network_config and dma_config register
- * to enable Rx and Tx Checksum Offloading.
- * LwIP still has to be informed about the crc offload
- *
- * @param xemacpsif_s *xemacpsif instance to be worked on
- *
- * @note		None.
- *
- ******************************************************************************/
-void XEmacPs_EnableChecksumOffload(xemacpsif_s *xemacpsif) {
-
-	u32 Reg;
-
-	//Read network_config Register
-	Reg = XEmacPs_ReadReg(xemacpsif->emacps.Config.BaseAddress,XEMACPS_NWCFG_OFFSET);
-
-	// Enable Rx Checksum Offload in network_config reg
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_NWCFG_OFFSET, Reg | XEMACPS_NWCFG_RXCHKSUMEN_MASK);
-
-	// Read dma_config register
-	Reg = XEmacPs_ReadReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_DMACR_OFFSET);
-
-	// Enable Tx Checksum Offload in dma_config reg
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_DMACR_OFFSET, Reg | XEMACPS_DMACR_TCPCKSUM_MASK);
-
-}
 
 /*****************************************************************************/
 /**

@@ -834,6 +834,8 @@ LONG XEmacPs_SetOptions(XEmacPs *InstancePtr, u32 Options);
 LONG XEmacPs_ClearOptions(XEmacPs *InstancePtr, u32 Options);
 u32 XEmacPs_GetOptions(XEmacPs *InstancePtr);
 
+void XEmacPs_EnableChecksumOffload(XEmacPs *InstancePtr);
+
 LONG XEmacPs_SetMacAddress(XEmacPs *InstancePtr, void *AddressPtr, u8 Index);
 LONG XEmacPs_DeleteHash(XEmacPs *InstancePtr, void *AddressPtr);
 void XEmacPs_GetMacAddress(XEmacPs *InstancePtr, void *AddressPtr, u8 Index);
