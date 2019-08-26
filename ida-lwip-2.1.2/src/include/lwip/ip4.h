@@ -58,11 +58,11 @@ extern "C" {
 #define LWIP_IPV4_SRC_ROUTING   0
 #endif
 
-/** Currently, the function ip_output_if_opt() is only used with IGMP */
+/** Currently, the function ip_output_if_opt() is only used with IGMP, IDA-Lwip assumes own IGMP methods and needs IP Options */
 #ifndef IDA_LWIP
 #define IP_OPTIONS_SEND   (LWIP_IPV4 && LWIP_IGMP)
 #else
-#define IP_OPTIONS_SEND   0
+#define IP_OPTIONS_SEND   1
 #endif
 
 #define ip_init() /* Compatibility define, no init needed. */
