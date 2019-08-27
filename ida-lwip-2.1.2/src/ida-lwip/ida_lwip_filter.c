@@ -138,17 +138,45 @@ static void _ida_filter_tx_thread(void* p_arg){
 					} else {
 						txReq->err = ERR_MEM;
 					}
-					sys_sem_signal(sock->sem);
+					sys_sem_signal(txReq->txCompleteSem);
 				} else {
 					// What should we do here????
 					//return -1;
 				}
 
 			} else if(txReq->type == RAW){
-
+				struct pbuf * p;
+				p = pbuf_alloc(PBUF_TRANSPORT, 0, PBUF_REF);
+				if (p != NULL){
+					p->payload = txReq->data;
+					p->len = txReq->size;
+					txReq->err = low_level_output(netif_local, p);
+				} else {
+					txReq->err = ERR_MEM;
+				}
+				sys_sem_signal(txReq->txCompleteSem);
 			} else {
 
 			}
 		}
 	}
+}
+
+ssize_t ida_lwip_send_raw(void *data, size_t size)
+{
+  if (size > IDA_LWIP_MAX_MSS) {
+	  return -1;
+  }
+
+  IDA_LWIP_TX_REQ txReq;
+  txReq.type = RAW;
+  txReq.data = data;
+  txReq.size = size;
+  txReq.err = ERR_OK;
+
+  ida_filter_enqueue_pkt((void*)&txReq, 0, 0);
+
+  sys_arch_sem_wait(txReq->txCompleteSem, 0);
+
+  return txReq.err == ERR_OK ? size : -1;
 }

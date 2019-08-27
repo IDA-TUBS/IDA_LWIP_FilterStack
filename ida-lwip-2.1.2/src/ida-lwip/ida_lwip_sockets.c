@@ -472,7 +472,6 @@ static int _ida_lwip_socketCreate(){
 static int _ida_lwip_proxySocketCreate(){
 	struct ida_lwip_proxy_sock *s;
 	IDA_LWIP_PRIO_QUEUE *prioQueue;
-	PBUF_MONITOR_T *monitor;
 	CPU_SR cpu_sr;
 
 	prioQueue = ida_lwip_prioQueueCreate(LWIP_SYS_ARCH_MBOX_SIZE);
@@ -970,6 +969,8 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
   if (!sock) {
     return -1;
   }
+
+  txReq.txCompleteSem = sock->sem;
 
   u8_t prio = ida_lwip_get_socket_prio(sock->id);
 
