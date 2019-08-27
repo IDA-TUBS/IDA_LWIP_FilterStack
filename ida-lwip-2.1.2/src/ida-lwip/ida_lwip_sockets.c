@@ -268,6 +268,8 @@ static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
 
 typedef enum {
 	SOCKET_MGM_CREATE = 0,
+	SOCKET_MGM_CREATE_PROXY,
+	SOCKET_MGM_REGISTER_PROXY,
 	SOCKET_MGM_BIND,
 	SOCKET_MGM_SELECT,
 	SOCKET_MGM_CLOSE,
@@ -287,51 +289,62 @@ LWIP_MEMPOOL_DECLARE(SOCKET_MGM_POOL, 20, sizeof(IDA_LWIP_SOCKET_MGM), "Socket M
 
 /** The global array of available sockets */
 static struct ida_lwip_sock sockets[NUM_SOCKETS];
+static struct ida_lwip_proxy_sock proxySockets[NUM_PROXY_SOCKETS];
 static struct ida_lwip_sock *socketFreeList;
-/** the global array of available mboxes*/
-static sys_mbox_t socket_msg_queues[NUM_SOCKETS];
-static int socket_msg_queue_counter = 0;
+static struct ida_lwip_proxy_sock *proxySocketFreeList;
+static u8_t socketPriorityMap[(NUM_SOCKETS/2)+1];
 /*functions*/
 struct ida_lwip_sock *get_socket(int fd);
+struct ida_lwip_proxy_sock *get_proxySocket(int fd);
 static err_t lwip_recvfrom_udp_raw(struct lwip_sock *sock, int flags, struct msghdr *msg, u16_t *datagram_len, int dbg_s);
 static void free_socket(struct lwip_sock *sock, int is_tcp);
-static int _ida_free_socket(struct ida_lwip_sock *sock);
+static int _ida_lwip_free_socket(int socket);
 void ida_lwip_init(void);
 
 //static sys_mbox_t socket_managment_queue:
 static sys_mbox_t socket_mgm_queue;
+
+
+#define _IDA_LWIP_IS_SOCKET(fd) (fd < NUM_SOCKETS ? 1 : 0)
+#define _IDA_LWIP_IS_PROXY(fd)  (fd >= NUM_SOCKETS && fd < NUM_SOCKETS + NUM_PROXY_SOCKETS ? 1 : 0)
 
 /**
  * INTERNAL_SOCKET_HANDLING
  * Internal socket handling by supervisor task
  */
 
-static sys_mbox_t* _ida_lwip_get_mbox(){
-	sys_mbox_t* mbox;
-	if (socket_msg_queue_counter > NUM_SOCKETS){
-		return NULL;
-	}
-	mbox = &socket_msg_queues[socket_msg_queue_counter];
-	socket_msg_queue_counter++;
-	return mbox;
-}
-
 void ida_lwip_initSockets(void){
+	CPU_SR cpu_sr;
+
+	OS_ENTER_CRITICAL();
 	LWIP_MEMPOOL_INIT(SOCKET_MGM_POOL);
 	sys_mbox_new(&socket_mgm_queue,20);
 
 	for(int i = 0; i < NUM_SOCKETS; i++){
 		sockets[i].id = i;
-		sockets[i].prio = i;
 		sockets[i].mbox = NULL;
 		sockets[i].sem = NULL;
+		sockets[i].proxy = NULL;
 		if(i < NUM_SOCKETS - 1)
 			sockets[i].next = &sockets[i+1];
 		else
 			sockets[i].next = NULL;
+
+		ida_lwip_set_socket_prio(i,0);
 	}
+
+	for(int i = 0; i < NUM_PROXY_SOCKETS; i++){
+		proxySockets[i].id = i + NUM_SOCKETS;
+		proxySockets[i].prioQueue = (IDA_LWIP_PRIO_QUEUE*)NULL;
+		if(i < NUM_PROXY_SOCKETS - 1)
+			proxySockets[i].next = &proxySockets[i+1];
+		else
+			proxySockets[i].next = NULL;
+	}
+	proxySocketFreeList = &proxySockets[0];
 	socketFreeList = &sockets[0];
-//	memset(sockets,0,sizeof(sockets));
+
+	OS_EXIT_CRITICAL();
 }
 
 static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,const ip_addr_t *addr, u16_t port){
@@ -404,16 +417,15 @@ static struct udp_pcb* _ida_lwip_newPcb(struct ida_lwip_sock *sock){
 
 static int _ida_lwip_socketCreate(){
 	struct ida_lwip_sock *s;
-	sys_mbox_t *mbox = _ida_lwip_get_mbox();
+	sys_mbox_t *mbox;
 	sys_sem_t *sem;
 	PBUF_MONITOR_T *monitor;
+	CPU_SR cpu_sr;
 
 	/* TODO: Configure specific priority here */
-	u16_t prio = 0;
-	u16_t mbox_size = LWIP_SYS_ARCH_MBOX_SIZE;
 	u16_t monitorTrigger = 5;
 
-	if(sys_mbox_new(mbox, mbox_size) != ERR_OK){
+	if(sys_mbox_new(mbox, LWIP_SYS_ARCH_MBOX_SIZE) != ERR_OK){
 		return -1;
 	}
 
@@ -429,10 +441,13 @@ static int _ida_lwip_socketCreate(){
 		return -1;
 	}
 
+	OS_ENTER_CRITICAL();
+
 	s = socketFreeList;
 
 	/* Check if free socket is available */
 	if(s == NULL){
+		OS_EXIT_CRITICAL();
 		sys_sem_free(sem);
 		sys_mbox_free(mbox);
 		ida_monitor_free(monitor);
@@ -443,11 +458,47 @@ static int _ida_lwip_socketCreate(){
 	/* detach it from the free list */
 	socketFreeList = s->next;
 	s->next = NULL;
-	if(prio == 0)
-		s->prio = s->id;
 	s->mbox = mbox;
 	s->sem = sem;
 	s->monitor = monitor;
+	s->proxy = NULL;
+	s->pendingCounter = 0;
+
+	OS_EXIT_CRITICAL();
+
+	return s->id;
+}
+
+static int _ida_lwip_proxySocketCreate(){
+	struct ida_lwip_proxy_sock *s;
+	IDA_LWIP_PRIO_QUEUE *prioQueue;
+	PBUF_MONITOR_T *monitor;
+	CPU_SR cpu_sr;
+
+	prioQueue = ida_lwip_prioQueueCreate(LWIP_SYS_ARCH_MBOX_SIZE);
+
+	if(prioQueue == NULL){
+		return -1;
+	}
+
+	OS_ENTER_CRITICAL();
+
+	s = proxySocketFreeList;
+
+	/* Check if free socket is available */
+	if(s == NULL){
+		OS_EXIT_CRITICAL();
+		ida_lwip_prioQueueDestroy(prioQueue);
+		return -1;
+	}
+
+	/* detach it from the free list */
+	proxySocketFreeList = s->next;
+	s->next = NULL;
+
+	s->prioQueue = prioQueue;
+
+	OS_EXIT_CRITICAL();
 
 	return s->id;
 }
@@ -518,6 +569,40 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 
 }
 
+int _ida_lwip_registerProxySocket(int proxyFd, int socketFd){
+	struct ida_lwip_proxy_sock *proxy;
+	struct ida_lwip_sock *socket;
+	u16_t pendingPackets = 0;
+
+	if(!_IDA_LWIP_IS_PROXY(proxyFd) || !_IDA_LWIP_IS_SOCKET(socketFd))
+		return -1;
+
+	CPU_SR cpu_sr;
+
+	OS_ENTER_CRITICAL();
+
+	proxy = get_proxySocket(proxyFd);
+	socket = get_socket(socketFd);
+
+	if(socket -> proxy != NULL){
+		OS_EXIT_CRITICAL();
+		return -1;
+	}
+
+	socket->proxy = proxy;
+	pendingPackets = socket->pendingCounter;
+
+	if(pendingPackets > 0){
+		u8_t prio = ida_lwip_get_socket_prio(socketFd);
+		ida_lwip_prioQueuePut(proxy->prioQueue,(void*)socketFd,prio);
+	}
+
+	sys_sem_free(socket->sem);
+	socket->sem = NULL;
+
+	OS_EXIT_CRITICAL();
+}
+
 void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
 	(void)p_arg;
 	IDA_LWIP_SOCKET_MGM *msg;
@@ -528,30 +613,34 @@ void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
 			switch(msg->type){
 			case SOCKET_MGM_CREATE:
 				msg->returnValue = _ida_lwip_socketCreate();
-				sys_sem_signal(&(msg->ackSem));
+				break;
+
+			case SOCKET_MGM_CREATE_PROXY:
+				msg->returnValue = _ida_lwip_proxySocketCreate();
 				break;
 
 			case SOCKET_MGM_BIND:
 				msg->returnValue = _ida_lwip_socketBind(msg->socket, msg->data, msg->dataLen);
-				sys_sem_signal(&(msg->ackSem));
 				break;
 
 			case SOCKET_MGM_SELECT:
 //				msg->returnValue = ;
-				sys_sem_signal(&(msg->ackSem));
 				break;
 
 			case SOCKET_MGM_CLOSE:
-				msg->returnValue = _ida_free_socket((struct ida_lwip_sock*)msg->data);
-				sys_sem_signal(&(msg->ackSem));
+				msg->returnValue = _ida_lwip_free_socket(msg->socket);
+				break;
+
+			case SOCKET_MGM_REGISTER_PROXY:
+				msg->returnValue = _ida_lwip_registerProxySocket(msg->socket, (int)msg->data);
 				break;
 
 			default:
 				msg->returnValue = -1;
-				sys_sem_signal(&(msg->ackSem));
+
 				break;
 			}
-
+			sys_sem_signal(&(msg->ackSem));
 		}
 	}
 }
@@ -601,7 +690,9 @@ static int _ida_lwip_socketMgmFree(IDA_LWIP_SOCKET_MGM *mgm){
 }
 
 struct ida_lwip_sock *get_socket(int fd){
-	//todo: Check parameters <-- done?
+	if(!_IDA_LWIP_IS_SOCKET(fd))
+		return NULL;
+
 	struct ida_lwip_sock *sock = &sockets[fd];
 
 	if (sock->mbox != NULL && sock->monitor != NULL && sock->sem != NULL){
@@ -610,13 +701,68 @@ struct ida_lwip_sock *get_socket(int fd){
 	return NULL;
 }
 
+struct ida_lwip_proxy_sock *get_proxySocket(int fd){
+	if(!_IDA_LWIP_IS_PROXY(fd))
+		return NULL;
+
+	struct ida_lwip_proxy_sock *sock = &proxySockets[fd-NUM_SOCKETS];
+
+	return sock;
+}
+
+/****************************************************************************
+ * SOCKET HANDLIN API
+ * get/set priority of a socket
+ ****************************************************************************/
+
 /**
+ * Get the priority of a socket
+ *
+ * @param: int file descriptor of socket
+ * @return: u8_t priority [0...7] (3 Bits used)
+ */
+u8_t ida_lwip_get_socket_prio(int fd){
+	if(!_IDA_LWIP_IS_SOCKET(fd))
+		return 0;
+
+	int row = fd / 2;
+	if(fd % 2 == 0)
+		return ((socketPriorityMap[row] & 0x70) >> 4);
+	else
+		return (socketPriorityMap[row] & 0x07);
+}
+
+/**
+ * Set the priority of a socket
+ *
+ * @param: int file descriptor of socket
+ * @param: u8_t priority [0...7] (3 Bits used)
+ * @return: void
+ */
+void ida_lwip_set_socket_prio(int fd, u8_t prio){
+	CPU_SR cpu_sr;
+	if(!_IDA_LWIP_IS_SOCKET(fd))
+		return;
+
+	int row = fd / 2;
+	OS_ENTER_CRITICAL();
+	if(fd % 2 == 0) {
+		socketPriorityMap[row] &= ~(0x70);
+		socketPriorityMap[row] |= ((prio << 4) & 0x70);
+	} else {
+		socketPriorityMap[row] &= ~(0x07);
+		socketPriorityMap[row] |= (prio & 0x07);
+	}
+	OS_EXIT_CRITICAL();
+}
+
+/****************************************************************************
  * USER_LEVEL_API
  * socket(): Create a new socket
  * bind(): Bind new socket
  * recvFrom(): Read from socket
  * sendTo(): Write to socket
- */
+ ****************************************************************************/
 
 int ida_lwip_socket(int domain, int type, int protocol)
 {
@@ -626,13 +772,20 @@ int ida_lwip_socket(int domain, int type, int protocol)
 	LWIP_UNUSED_ARG(domain);
 	LWIP_UNUSED_ARG(protocol);
 
-	if(type != SOCK_DGRAM)
+	if(type != SOCK_DGRAM && type != SOCK_PROXY)
 	  return -1;
 
 	if(_ida_lwip_socketMgmAlloc(&msg) < 0)
 		return -1;
 
-	msg->type = SOCKET_MGM_CREATE;
+	if(type == SOCK_DGRAM)
+		msg->type = SOCKET_MGM_CREATE;
+	else if(type == SOCK_PROXY)
+		msg->type = SOCKET_MGM_CREATE_PROXY;
+	else {
+		_ida_lwip_socketMgmFree(msg);
+		return -1;
+	}
 
 	sys_mbox_post(&socket_mgm_queue,msg);
 	sys_arch_sem_wait(&msg->ackSem,0);
@@ -658,6 +811,21 @@ int ida_lwip_bind(int s, const struct sockaddr *name, socklen_t namelen)
 	return _ida_lwip_socketMgmFree(msg);
 }
 
+int ida_lwip_registerProxy(int proxy, int socket){
+	IDA_LWIP_SOCKET_MGM *msg = NULL;
+
+	if(_ida_lwip_socketMgmAlloc(&msg) < 0)
+		return -1;
+
+	msg->type = SOCKET_MGM_REGISTER_PROXY;
+	msg->socket = proxy;
+	msg->data = (void*)socket;
+
+	sys_mbox_post(&socket_mgm_queue,msg);
+	sys_arch_sem_wait(&msg->ackSem,0);
+
+	return _ida_lwip_socketMgmFree(msg);
+}
 
 ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen)
 {
@@ -803,7 +971,7 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
     return -1;
   }
 
-  u8_t prio = sock->prio;
+  u8_t prio = ida_lwip_get_socket_prio(sock->id);
 
   ida_filter_enqueue_pkt((void*)&txReq, prio, 0);
 
@@ -886,26 +1054,47 @@ free_socket(struct lwip_sock *sock, int is_tcp)
   }
 }
 
-static int _ida_free_socket(struct ida_lwip_sock *sock)
+static int _ida_lwip_free_socket(int socket)
 {
-	/* Protect socket array */
-	sock->id=0;
-	sock->prio=0;
-	sys_sem_free(sock->sem);
-	sys_mbox_free(sock->mbox);
-	ida_monitor_free(sock->monitor);
 
-	if(sock->sem != NULL && sock->mbox != NULL && sock->monitor != NULL){ //todo: does this work?
+	if(socket < NUM_SOCKETS){
+		/* Close a normal socket */
+		struct ida_lwip_sock *sock;
+
+		sock = get_socket(socket);
+		if(sock == NULL)
 			return -1;
+		/* Protect socket array */
+		sys_sem_free(sock->sem);
+		sys_mbox_free(sock->mbox);
+		ida_monitor_free(sock->monitor);
+
+		sock->sem = NULL;
+		sock->mbox = NULL;
+		sock->monitor = NULL;
+
+		/* put socket back into free list*/
+		sock->next = socketFreeList;
+		socketFreeList = sock;
+
+		return 0;
+	} else if(socket >= NUM_SOCKETS && socket < NUM_SOCKETS + NUM_PROXY_SOCKETS) {
+		/* Close a proxy socket */
+		struct ida_lwip_proxy_sock * sock = get_proxySocket(socket);
+		if(sock == NULL)
+			return -1;
+
+		ida_lwip_prioQueueDestroy(sock->prioQueue);
+		sock->prioQueue = (IDA_LWIP_PRIO_QUEUE*)NULL;
+
+		sock->next = proxySocketFreeList;
+		proxySocketFreeList = sock;
+
+		/* Not implemented yet */
+		return -1;
 	}
 
-	/* detach it from the free list */
-	socketFreeList = sock->next;
 
-	/* put socket back into free list*/
-	socketFreeList = sock;
-
-	return 0;
 }
 
 
@@ -914,19 +1103,12 @@ int
 ida_lwip_close(int s)
 {
 	IDA_LWIP_SOCKET_MGM *msg = NULL;
-	struct ida_lwip_sock *sock;
-
-	sock = get_socket(s);
-	if (!sock) {
-		return -1;
-	}
 
 	if(_ida_lwip_socketMgmAlloc(&msg) < 0)
 		return -1;
 
 	msg->type = SOCKET_MGM_CLOSE;
 	msg->socket = s;
-	msg->data = sock;
 
 	sys_mbox_post(&socket_mgm_queue,msg);
 	sys_arch_sem_wait(&msg->ackSem,0);

@@ -19,6 +19,7 @@ typedef struct{
 
 void ida_lwip_prioQueueInit(void);
 IDA_LWIP_PRIO_QUEUE* ida_lwip_prioQueueCreate(int size);
+void ida_lwip_prioQueueDestroy(IDA_LWIP_PRIO_QUEUE* queue);
 err_t ida_lwip_prioQueuePut(IDA_LWIP_PRIO_QUEUE *queue, void *msg, u8_t prio);
 void *ida_lwip_prioQueuePend(IDA_LWIP_PRIO_QUEUE *queue, u32_t timeout);
 

@@ -188,6 +188,7 @@ struct ifreq {
 #define SOCK_STREAM     1
 #define SOCK_DGRAM      2
 #define SOCK_RAW        3
+#define SOCK_PROXY		255
 
 /*
  * Option flags per-socket. These must match the SOF_ flags in ip.h (checked in init.c)
@@ -195,7 +196,6 @@ struct ifreq {
 #define SO_REUSEADDR   0x0004 /* Allow local address reuse */
 #define SO_KEEPALIVE   0x0008 /* keep connections alive */
 #define SO_BROADCAST   0x0020 /* permit to send and to receive broadcast messages (see IP_SOF_BROADCAST option) */
-
 
 /*
  * Additional options, not kept in so_options.
@@ -528,6 +528,10 @@ struct timeval {
 #define lwip_socket_init() /* Compatibility define, no init needed. */
 void lwip_socket_thread_init(void); /* LWIP_NETCONN_SEM_PER_THREAD==1: initialize thread-local semaphore */
 void lwip_socket_thread_cleanup(void); /* LWIP_NETCONN_SEM_PER_THREAD==1: destroy thread-local semaphore */
+
+u8_t ida_lwip_get_socket_prio(int fd);
+void ida_lwip_set_socket_prio(int fd, u8_t prio);
+
 
 int ida_lwip_accept(int s, struct sockaddr *addr, socklen_t *addrlen);
 int ida_lwip_bind(int s, const struct sockaddr *name, socklen_t namelen);

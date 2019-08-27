@@ -45,12 +45,14 @@
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include "ida-lwip/ida_lwip_monitor.h"
+#include "ida-lwip/ida_lwip_prio_queue.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define NUM_SOCKETS MEMP_NUM_NETCONN
+#define NUM_PROXY_SOCKETS 	10
 
 /** This is overridable for the rare case where more than 255 threads
  * select on the same socket...
@@ -68,10 +70,18 @@ struct ida_lwip_sock{
 	sys_sem_t *sem;
 	sys_mbox_t *mbox;
 	u16_t	id;
-	u16_t	prio;
+	u16_t 	pendingCounter;
 	struct ida_lwip_sock *next;
 	PBUF_MONITOR_T *monitor;
 	struct udp_pcb *pcb;
+	struct ida_lwip_proxy_sock *proxy;
+};
+
+struct ida_lwip_proxy_sock{
+	u16_t	id;
+	struct ida_lwip_proxy_sock *next;
+
+	IDA_LWIP_PRIO_QUEUE *prioQueue;
 };
 
 /** Contains all internal pointers and states used for a socket */
