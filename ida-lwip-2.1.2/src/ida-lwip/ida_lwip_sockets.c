@@ -864,18 +864,19 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
 //	}
 
 	if(p == NULL) {
-		ida_lwip_close(s);
-		return -1;
+//		ida_lwip_close(s);
+		return -2;
 	}
 	if(p->next == NULL){
-		ida_lwip_close(s);
-		return -1;
+//		ida_lwip_close(s);
+		return -3;
 	}
+
+	sock->pendingCounter--;
+
 	p = p->next;
 	ret = p->tot_len;
 	mem = (void*)p;
-
-	sock->pendingCounter--;
 
 //	buflen = p->tot_len;
 //
@@ -904,7 +905,7 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
 //	*fromlen = msg.msg_namelen;
 //	}
 
-	ida_lwip_close(s);
+//	ida_lwip_close(s);
 	return ret;
 }
 
