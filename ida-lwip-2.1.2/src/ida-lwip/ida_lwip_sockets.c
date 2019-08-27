@@ -649,20 +649,6 @@ void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
 void ida_lwip_init(void){
 
 
-	ida_lwip_initSockets();
-
-	OSTaskCreateExt(ida_lwip_socketSupervisorTask,
-						NULL,
-						&sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE - 1],
-						SOCK_SUPERV_TASK_PRIO,
-						SOCK_SUPERV_TASK_PRIO,
-						&sockSupervTaskStk[0],
-						SOCK_SUPERV_TASK_STACK_SIZE,
-						DEF_NULL,
-						(OS_TASK_OPT_STK_CLR | OS_TASK_OPT_STK_CHK));
-	OSTaskNameSet(5, (INT8U *) "sockSupervServerTask", NULL);
-
-//	sys_thread_new("sockSupervServerTask", ida_lwip_socketSupervisorTask, NULL, SOCK_SUPERV_TASK_STACK_SIZE, SOCK_SUPERV_TASK_PRIO);
 
 }
 
@@ -987,7 +973,7 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
 
   ida_filter_enqueue_pkt((void*)&txReq, prio, 0);
 
-  sys_arch_sem_wait(&sock->sem, 0);
+  sys_arch_sem_wait(&txReq.txCompleteSem, 0);
 
   return txReq.err == ERR_OK ? size : -1;
 }
