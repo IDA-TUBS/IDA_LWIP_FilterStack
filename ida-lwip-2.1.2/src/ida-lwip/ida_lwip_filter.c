@@ -138,7 +138,7 @@ static void _ida_filter_tx_thread(void* p_arg){
 					} else {
 						txReq->err = ERR_MEM;
 					}
-					sys_sem_signal(txReq->txCompleteSem);
+					sys_sem_signal(&txReq->txCompleteSem);
 				} else {
 					// What should we do here????
 					//return -1;
@@ -154,7 +154,7 @@ static void _ida_filter_tx_thread(void* p_arg){
 				} else {
 					txReq->err = ERR_MEM;
 				}
-				sys_sem_signal(txReq->txCompleteSem);
+				sys_sem_signal(&txReq->txCompleteSem);
 			} else {
 
 			}

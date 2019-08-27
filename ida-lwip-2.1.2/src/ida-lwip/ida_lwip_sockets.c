@@ -310,7 +310,7 @@ static sys_mbox_t socket_mgm_queue;
 
 /**
  * INTERNAL_SOCKET_HANDLING
- * Internal socket handling by supervisor task
+ * Internal socket handling by supervisor task(*((*(socket_mgm_queue)).osmbox)).OSEventType
  */
 
 void ida_lwip_initSockets(void){
@@ -366,7 +366,7 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 		return;
 	}
 
-	if (!sys_mbox_valid(s->mbox)) {
+	if (!sys_mbox_valid(&s->mbox)) {
 		pbuf_free(p);
 		return;
 	}
@@ -387,10 +387,12 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 //	    buf->port = port;
 //	  }
 
-	if (sys_mbox_trypost(s->mbox, p) != ERR_OK) {
+	if (sys_mbox_trypost(&s->mbox, p) != ERR_OK) {
 		pbuf_free(p);
 		return;
 	}
+
+	s->pendingCounter++;
 
     /* Register event with callback */
 //    API_EVENT(conn, NETCONN_EVT_RCVPLUS, len);
@@ -417,27 +419,27 @@ static struct udp_pcb* _ida_lwip_newPcb(struct ida_lwip_sock *sock){
 
 static int _ida_lwip_socketCreate(){
 	struct ida_lwip_sock *s;
-	sys_mbox_t *mbox;
-	sys_sem_t *sem;
+	sys_mbox_t mbox;
+	sys_sem_t sem;
 	PBUF_MONITOR_T *monitor;
 	CPU_SR cpu_sr;
 
 	/* TODO: Configure specific priority here */
 	u16_t monitorTrigger = 5;
 
-	if(sys_mbox_new(mbox, LWIP_SYS_ARCH_MBOX_SIZE) != ERR_OK){
+	if(sys_mbox_new(&mbox, LWIP_SYS_ARCH_MBOX_SIZE) != ERR_OK){
 		return -1;
 	}
 
-	if(sys_sem_new(sem,0) != ERR_OK){
-		sys_mbox_free(mbox);
+	if(sys_sem_new(&sem,0) != ERR_OK){
+		sys_mbox_free(&mbox);
 		return -1;
 	}
 
 	monitor = ida_monitor_alloc(monitorTrigger);
 	if(monitor == NULL){
-		sys_mbox_free(mbox);
-		sys_sem_free(sem);
+		sys_mbox_free(&mbox);
+		sys_sem_free(&sem);
 		return -1;
 	}
 
@@ -448,8 +450,8 @@ static int _ida_lwip_socketCreate(){
 	/* Check if free socket is available */
 	if(s == NULL){
 		OS_EXIT_CRITICAL();
-		sys_sem_free(sem);
-		sys_mbox_free(mbox);
+		sys_sem_free(&sem);
+		sys_mbox_free(&mbox);
 		ida_monitor_free(monitor);
 		//todo: here was kai's last edit
 		return -1;
@@ -596,7 +598,7 @@ int _ida_lwip_registerProxySocket(int proxyFd, int socketFd){
 		ida_lwip_prioQueuePut(proxy->prioQueue,(void*)socketFd,prio);
 	}
 
-	sys_sem_free(socket->sem);
+	sys_sem_free(&socket->sem);
 	socket->sem = NULL;
 
 	OS_EXIT_CRITICAL();
@@ -831,29 +833,29 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
 	struct ida_lwip_sock *sock;
 	struct pbuf* p;
 	ssize_t ret;
-	u16_t buflen, copylen, copied;
-	int i;
+//	u16_t buflen, copylen, copied;
+//	int i;
 
 	sock = get_socket(s);
 	if (sock == NULL) {
 		return -1;
 	}
 
-	u16_t datagram_len = 0;
-	struct iovec vec;
-	struct msghdr msg;
-	err_t err;
-	vec.iov_base = mem;
-	vec.iov_len = len;
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
-	msg.msg_iov = &vec;
-	msg.msg_iovlen = 1;
-	msg.msg_name = from;
-	msg.msg_namelen = (fromlen ? *fromlen : 0);
+//	u16_t datagram_len = 0;
+//	struct iovec vec;
+//	struct msghdr msg;
+//	err_t err;
+//	vec.iov_base = mem;
+//	vec.iov_len = len;
+//	msg.msg_control = NULL;
+//	msg.msg_controllen = 0;
+//	msg.msg_flags = 0;
+//	msg.msg_iov = &vec;
+//	msg.msg_iovlen = 1;
+//	msg.msg_name = from;
+//	msg.msg_namelen = (fromlen ? *fromlen : 0);
 
-	sys_arch_mbox_fetch(sock->mbox, (void*)p, 0);
+	sys_arch_mbox_fetch(&sock->mbox, (void*)p, 0);
 	//TODO: POST OR FETCH??
 //	if(sys_arch_mbox_tryfetch(sock->mbox, (void*)p) == SYS_ARCH_TIMEOUT) {
 //		ida_lwip_close(s);
@@ -864,33 +866,42 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
 		ida_lwip_close(s);
 		return -1;
 	}
-
-	buflen = p->tot_len;
-
-	copied = 0;
-	/* copy the pbuf payload into the iovs */
-	for (i = 0; (i < msg.msg_iovlen) && (copied < buflen); i++) {
-		u16_t len_left = (u16_t)(buflen - copied);
-		if (msg.msg_iov[i].iov_len > len_left) {
-			copylen = len_left;
-		} else {
-			copylen = (u16_t)msg.msg_iov[i].iov_len;
-		}
-
-		/* copy the contents of the received buffer into
-			the supplied memory buffer */
-		pbuf_copy_partial(p, (u8_t *)msg.msg_iov[i].iov_base, copylen, copied);
-		copied = (u16_t)(copied + copylen);
+	if(p->next == NULL){
+		ida_lwip_close(s);
+		return -1;
 	}
+	p = p->next;
+	ret = p->tot_len;
+	mem = (void*)p;
 
-	if (datagram_len) {
-		datagram_len = buflen;
-	}
+	sock->pendingCounter--;
 
-	ret = (ssize_t)LWIP_MIN(LWIP_MIN(len, datagram_len), SSIZE_MAX);
-	if (fromlen) {
-	*fromlen = msg.msg_namelen;
-	}
+//	buflen = p->tot_len;
+//
+//	copied = 0;
+//	/* copy the pbuf payload into the iovs */
+//	for (i = 0; (i < msg.msg_iovlen) && (copied < buflen); i++) {
+//		u16_t len_left = (u16_t)(buflen - copied);
+//		if (msg.msg_iov[i].iov_len > len_left) {
+//			copylen = len_left;
+//		} else {
+//			copylen = (u16_t)msg.msg_iov[i].iov_len;
+//		}
+//
+//		/* copy the contents of the received buffer into
+//			the supplied memory buffer */
+//		pbuf_copy_partial(p, (u8_t *)msg.msg_iov[i].iov_base, copylen, copied);
+//		copied = (u16_t)(copied + copylen);
+//	}
+//
+//	if (datagram_len) {
+//		datagram_len = buflen;
+//	}
+//
+//	ret = (ssize_t)LWIP_MIN(LWIP_MIN(len, datagram_len), SSIZE_MAX);
+//	if (fromlen) {
+//	*fromlen = msg.msg_namelen;
+//	}
 
 	ida_lwip_close(s);
 	return ret;
@@ -976,7 +987,7 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
 
   ida_filter_enqueue_pkt((void*)&txReq, prio, 0);
 
-  sys_arch_sem_wait(sock->sem, 0);
+  sys_arch_sem_wait(&sock->sem, 0);
 
   return txReq.err == ERR_OK ? size : -1;
 }
@@ -1066,8 +1077,8 @@ static int _ida_lwip_free_socket(int socket)
 		if(sock == NULL)
 			return -1;
 		/* Protect socket array */
-		sys_sem_free(sock->sem);
-		sys_mbox_free(sock->mbox);
+		sys_sem_free(&sock->sem);
+		sys_mbox_free(&sock->mbox);
 		ida_monitor_free(sock->monitor);
 
 		sock->sem = NULL;
