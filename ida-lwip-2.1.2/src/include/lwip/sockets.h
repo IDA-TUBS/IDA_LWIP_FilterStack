@@ -531,7 +531,8 @@ void lwip_socket_thread_cleanup(void); /* LWIP_NETCONN_SEM_PER_THREAD==1: destro
 
 u8_t ida_lwip_get_socket_prio(int fd);
 void ida_lwip_set_socket_prio(int fd, u8_t prio);
-
+void ida_lwip_socketSupervisorTask(void *p_arg);
+void ida_lwip_initSockets(void);
 
 int ida_lwip_accept(int s, struct sockaddr *addr, socklen_t *addrlen);
 int ida_lwip_bind(int s, const struct sockaddr *name, socklen_t namelen);

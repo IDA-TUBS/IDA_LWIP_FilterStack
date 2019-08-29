@@ -29,6 +29,9 @@ IDA_LWIP_PRIO_QUEUE *outputQueue;
 
 static void _ida_filter_thread(void* p_arg);
 static void _ida_filter_tx_thread(void* p_arg);
+static void _ida_filter_classicAdapter(void* p_arg);
+
+extern err_t low_level_output(struct netif *netif, struct pbuf *p);
 
 /*
  * initialization of the 8 mboxes
@@ -50,8 +53,23 @@ void ida_filter_init(struct netif *netif){
 	inputQueue = ida_lwip_prioQueueCreate(10);
 	outputQueue = ida_lwip_prioQueueCreate(10);
 
+	ida_lwip_initSockets();
+
+//	OSTaskCreateExt(ida_lwip_socketSupervisorTask,
+//						NULL,
+//						&sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE - 1],
+//						SOCK_SUPERV_TASK_PRIO,
+//						SOCK_SUPERV_TASK_PRIO,
+//						&sockSupervTaskStk[0],
+//						SOCK_SUPERV_TASK_STACK_SIZE,
+//						DEF_NULL,
+//						(OS_TASK_OPT_STK_CLR | OS_TASK_OPT_STK_CHK));
+//	OSTaskNameSet(5, (INT8U *) "sockSupervServerTask", NULL);
+
 	sys_thread_new("ida_lwip_filter",(void (*)(void*)) _ida_filter_thread, NULL, 512,	TCPIP_THREAD_PRIO - 1);
 	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, 512,	TCPIP_THREAD_PRIO - 2);
+	sys_thread_new("ida_lwip_sockSupervisor", (void (*)(void*)) ida_lwip_socketSupervisorTask, NULL, 512, OS_LOWEST_PRIO - 11);
+	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_tx_thread, NULL, 512,	OS_LOWEST_PRIO - 10);
 }
 
 /*
@@ -138,17 +156,59 @@ static void _ida_filter_tx_thread(void* p_arg){
 					} else {
 						txReq->err = ERR_MEM;
 					}
-					sys_sem_signal(&sock->sem);
+					sys_sem_signal(&txReq->txCompleteSem);
 				} else {
 					// What should we do here????
 					//return -1;
 				}
 
 			} else if(txReq->type == RAW){
-
+				struct pbuf * p;
+				p = pbuf_alloc(PBUF_TRANSPORT, 0, PBUF_REF);
+				if (p != NULL){
+					p->payload = txReq->data;
+					p->len = txReq->size;
+					txReq->err = netif_local->linkoutput(netif_local, p);
+				} else {
+					txReq->err = ERR_MEM;
+				}
+				sys_sem_signal(&txReq->txCompleteSem);
 			} else {
 
 			}
 		}
 	}
+}
+
+ssize_t ida_lwip_send_raw(void *data, size_t size, sys_sem_t *completeSem)
+{
+  if (size > IDA_LWIP_MAX_MSS || data == NULL) {
+	  return -1;
+  }
+
+  if (!sys_sem_valid(completeSem))
+	  return -1;
+
+  IDA_LWIP_TX_REQ txReq;
+  txReq.type = RAW;
+  txReq.data = data;
+  txReq.size = size;
+  txReq.err = ERR_OK;
+  txReq.txCompleteSem = *completeSem;
+
+  ida_filter_enqueue_pkt((void*)&txReq, 0, 0);
+
+  sys_arch_sem_wait(&txReq.txCompleteSem, 0);
+
+  return txReq.err == ERR_OK ? size : -1;
+}
+
+static void _ida_filter_classicAdapter(void* p_arg){
+	sys_sem_t txCompleteSem;
+	if(sys_sem_new(&txCompleteSem,0) != ERR_OK){
+		return;
+	}
+
+	ida_lwip_send_raw(NULL, 0, &txCompleteSem);
+
 }
