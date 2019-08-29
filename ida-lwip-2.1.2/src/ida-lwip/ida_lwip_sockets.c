@@ -263,7 +263,7 @@ sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_
 #define IPTYPE IPADDR_TYPE_V4
 
 #define SOCK_SUPERV_TASK_STACK_SIZE 1024
-#define SOCK_SUPERV_TASK_PRIO 11 //same as dummy task
+#define SOCK_SUPERV_TASK_PRIO OS_LOWEST_PRIO - 11 //same as dummy task
 static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
 
 typedef enum {
@@ -325,6 +325,7 @@ void ida_lwip_initSockets(void){
 		sockets[i].mbox = NULL;
 		sockets[i].sem = NULL;
 		sockets[i].proxy = NULL;
+		sockets[i].pendingCounter = 0;
 		if(i < NUM_SOCKETS - 1)
 			sockets[i].next = &sockets[i+1];
 		else
@@ -840,6 +841,10 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
 //	msg.msg_iovlen = 1;
 //	msg.msg_name = from;
 //	msg.msg_namelen = (fromlen ? *fromlen : 0);
+
+//	if(sock->pendingCounter < 1){
+//		return -4;
+//	}
 
 	sys_arch_mbox_fetch(&sock->mbox, (void*)p, 0);
 	//TODO: POST OR FETCH??

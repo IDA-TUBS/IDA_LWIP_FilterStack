@@ -27,6 +27,10 @@ struct netif *netif_local;				// local save of netif, is needed to call ip4_inpu
 IDA_LWIP_PRIO_QUEUE *inputQueue;
 IDA_LWIP_PRIO_QUEUE *outputQueue;
 
+#define SOCK_SUPERV_TASK_STACK_SIZE 1024
+#define SOCK_SUPERV_TASK_PRIO OS_LOWEST_PRIO - 11 //same as dummy task
+static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
+
 static void _ida_filter_thread(void* p_arg);
 static void _ida_filter_tx_thread(void* p_arg);
 static void _ida_filter_classicAdapter(void* p_arg);
