@@ -60,10 +60,14 @@ inline err_t ida_lwip_prioQueuePut(IDA_LWIP_PRIO_QUEUE *queue, void *msg, u8_t p
 	if(prio > 7){
 		return ERR_ARG;
 	}
+	OS_ENTER_CRITICAL();
+
+	if (queue->count[prio] == IDA_LWIP_MBOX_SIZE){
+		OS_EXIT_CRITICAL();
+		return ERR_MEM;
+	}
 
 	sys_mbox_trypost(&queue->mbox[prio], msg);
-
-	OS_ENTER_CRITICAL();
 	queue->count[prio]++;
 	queue->prio_field |= (1 << prio);
 	sys_sem_signal(&queue->act_sem);

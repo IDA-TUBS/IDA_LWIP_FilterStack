@@ -10,6 +10,9 @@
 
 #include "lwip/sys.h"
 
+
+#define IDA_LWIP_MBOX_SIZE 10
+
 typedef struct{
 	sys_mbox_t mbox[8];
 	u16_t count[8];

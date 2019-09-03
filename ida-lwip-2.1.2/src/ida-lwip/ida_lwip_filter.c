@@ -54,8 +54,8 @@ void ida_filter_init(struct netif *netif){
 
 	/*Initialization of ida_filter_queue*/
 
-	inputQueue = ida_lwip_prioQueueCreate(10);
-	outputQueue = ida_lwip_prioQueueCreate(10);
+	inputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
+	outputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
 
 	ida_lwip_initSockets();
 
