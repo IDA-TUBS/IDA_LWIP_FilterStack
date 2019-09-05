@@ -349,7 +349,7 @@ void ida_lwip_initSockets(void){
 }
 
 static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,const ip_addr_t *addr, u16_t port){
-
+	CPU_SR cpu_sr;
 	struct ida_lwip_sock *s;
 //	struct netbuf *buf;
 
@@ -388,12 +388,16 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 //	    buf->port = port;
 //	  }
 
+	OS_ENTER_CRITICAL();
+
 	if (sys_mbox_trypost(&s->mbox, p) != ERR_OK) {
 		pbuf_free(p);
+		OS_EXIT_CRITICAL();
 		return;
 	}
-
+	sys_sem_signal(&s->sem);
 	s->pendingCounter++;
+	OS_EXIT_CRITICAL();
 
     /* Register event with callback */
 //    API_EVENT(conn, NETCONN_EVT_RCVPLUS, len);
@@ -407,8 +411,6 @@ static struct udp_pcb* _ida_lwip_newPcb(struct ida_lwip_sock *sock){
 	if(pcb == NULL){
 		return NULL;
 	}
-
-	//todo set flags?? udp_setflags(msg->conn->pcb.udp, UDP_FLAGS_NOCHKSUM);
 
 	pcb->recv = (udp_recv_fn)_ida_lwip_socketRecv;
 	pcb->recv_arg = sock;
@@ -815,16 +817,17 @@ int ida_lwip_registerProxy(int proxy, int socket){
 	return _ida_lwip_socketMgmFree(msg);
 }
 
-ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen)
+ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen)
 {
-	struct ida_lwip_sock *sock;
+	CPU_SR cpu_sr;
+	struct ida_lwip_sock *s;
 	struct pbuf* p;
 	ssize_t ret;
 //	u16_t buflen, copylen, copied;
 //	int i;
 
-	sock = get_socket(s);
-	if (sock == NULL) {
+	s = get_socket(sock);
+	if (s == NULL) {
 		return -1;
 	}
 
@@ -846,8 +849,14 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
 //		return -4;
 //	}
 
-	sys_arch_mbox_fetch(&sock->mbox, (void*)p, 0);
-	//TODO: POST OR FETCH??
+	sys_arch_sem_wait(&s->sem, 0);
+
+	OS_ENTER_CRITICAL();
+	sys_arch_mbox_tryfetch(&s->mbox, &p);
+	s->pendingCounter--;
+	OS_EXIT_CRITICAL();
+
+//	sys_arch_mbox_fetch(&sock->mbox, (void*)p, 0);
 //	if(sys_arch_mbox_tryfetch(sock->mbox, (void*)p) == SYS_ARCH_TIMEOUT) {
 //		ida_lwip_close(s);
 //		return -1;
@@ -862,11 +871,12 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags, struct sockad
 		return -3;
 	}
 
-	sock->pendingCounter--;
+//	sock->pendingCounter--;
 
 	p = p->next;
 	ret = p->tot_len;
-	mem = (void*)p;
+	mem = p;
+	pbuf_free(p);
 
 //	buflen = p->tot_len;
 //

@@ -80,6 +80,8 @@ int ida_monitor_check(struct pbuf *p, PBUF_MONITOR_T *monitor){
 
 PBUF_MONITOR_T * ida_monitor_alloc(u16_t trigger){
 	PBUF_MONITOR_T *monitor = LWIP_MEMPOOL_ALLOC(MONITOR_POOL);
+	if(monitor == NULL)
+		return NULL;
 	monitor->counter = 0;
 	monitor->trigger = trigger;
 	return monitor;
