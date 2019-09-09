@@ -194,6 +194,9 @@ xemac_add(struct netif *netif,
 
 #ifdef IDA_LWIP
 void	ida_lwip_input(struct pbuf *p){
+#if LINK_STATS
+	lwip_stats.link.recv++;
+#endif /* LINK_STATS */
 	ethernet_input(p,ida_netif);
 }
 #else
