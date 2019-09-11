@@ -583,13 +583,13 @@ int lwip_inet_pton(int af, const char *src, void *dst);
 /** @ingroup socket */
 #define listen(s,backlog)                         (-1)
 /** @ingroup socket */
-#define recv(s,mem,len,flags)                     ida_lwip_recvfrom(s, mem, len, flags, NULL, NULL);
+#define recv(s,mem,len,flags)                     ida_lwip_recvfrom(s, mem, len, flags, NULL, NULL)
 /** @ingroup socket */
 #define recvmsg(s,message,flags)                  (-1)
 /** @ingroup socket */
 #define recvfrom(s,mem,len,flags,from,fromlen)    ida_lwip_recvfrom(s,mem,len,flags,from,fromlen)
 /** @ingroup socket */
-#define send(s,dataptr,size,flags)                ida_lwip_sendto(s, data, size, flags, NULL, 0);
+#define send(s,dataptr,size,flags)                ida_lwip_sendto(s, data, size, flags, NULL, 0)
 /** @ingroup socket */
 #define sendmsg(s,message,flags)                  (-1)
 /** @ingroup socket */
@@ -613,11 +613,11 @@ int lwip_inet_pton(int af, const char *src, void *dst);
 
 #if LWIP_POSIX_SOCKETS_IO_NAMES
 /** @ingroup socket */
-#define read(s,mem,len)                           ida_lwip_recvfrom(s, mem, len, 0, NULL, NULL);
+#define read(s,mem,len)                           ida_lwip_recvfrom(s, mem, len, 0, NULL, NULL)
 /** @ingroup socket */
 #define readv(s,iov,iovcnt)                       (-1)
 /** @ingroup socket */
-#define write(s,dataptr,len)                      ida_lwip_sendto(s, dataptr, len, 0, NULL, 0);
+#define write(s,dataptr,len)                      ida_lwip_sendto(s, dataptr, len, 0, NULL, 0)
 /** @ingroup socket */
 #define writev(s,iov,iovcnt)                      (-1)
 /** @ingroup socket */

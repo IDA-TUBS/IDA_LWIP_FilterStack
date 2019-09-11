@@ -67,7 +67,8 @@ union lwip_sock_lastdata {
 };
 
 struct ida_lwip_sock{
-	sys_sem_t sem;
+	sys_sem_t rxSem;
+	sys_sem_t txSem;
 	sys_mbox_t mbox;
 	u16_t	id;
 	u16_t 	pendingCounter;
