@@ -68,6 +68,21 @@
 static UINTPTR tx_pbufs_storage[4*XLWIP_CONFIG_N_TX_DESC];
 static UINTPTR rx_pbufs_storage[4*XLWIP_CONFIG_N_RX_DESC];
 
+/* Memory offset in case of memory aliasing. This is typically used with cortex r5 on zynq ultrascale
+ * (E.g. the TCM is aliased to region 0x00000000 but for the dma visible in region 0xFFE00000.
+ */
+#ifdef LWIP_MEMORY_ALIASING
+#ifndef LWIP_ALIASED_OFFSET
+#error "Memory offset must be specified in case of aliasing"
+#endif
+#ifndef LWIP_ALIASED_BASE
+#error "Memory base must be specified in case of aliasing"
+#endif
+#ifndef LWIP_ALIASED_SIZE
+#error "Memory size must be specified in case of aliasing"
+#endif
+#endif
+
 #ifdef IDA_LWIP
 #include "ida-lwip/ida_lwip_monitor.h"
 #endif
@@ -339,11 +354,14 @@ XStatus emacps_sgsend(xemacpsif_s *xemacpsif, struct pbuf *p)
 			Xil_DCacheFlushRange((UINTPTR)q->payload, (UINTPTR)q->len);
 		}
 
-#if defined (ARMR5)
-		if((UINTPTR)q->payload < 0x00040000)
-			q->payload += 0xFFE00000;
-#endif
+#ifdef LWIP_MEMORY_ALIASING
+		if((UINTPTR)q->payload >= LWIP_ALIASED_BASE && (UINTPTR)q->payload < LWIP_ALIASED_SIZE)
+			XEmacPs_BdSetAddressTx(txbd, (UINTPTR)q->payload + LWIP_ALIASED_OFFSET);
+		else
+			XEmacPs_BdSetAddressTx(txbd, (UINTPTR)q->payload);
+#else
 		XEmacPs_BdSetAddressTx(txbd, (UINTPTR)q->payload);
+#endif
 
 #ifdef ZYNQMP_USE_JUMBO
 		max_fr_size = MAX_FRAME_SIZE_JUMBO - 18;
@@ -467,7 +485,15 @@ void setup_rx_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *rxring)
 		*temp = 0;
 		dsb();
 
+#ifdef LWIP_MEMORY_ALIASING
+		if((UINTPTR)p->payload >= LWIP_ALIASED_BASE && (UINTPTR)p->payload < LWIP_ALIASED_SIZE)
+			XEmacPs_BdSetAddressRx(rxbd, (UINTPTR)p->payload + LWIP_ALIASED_OFFSET);
+		else
+			XEmacPs_BdSetAddressRx(rxbd, (UINTPTR)p->payload);
+#else
 		XEmacPs_BdSetAddressRx(rxbd, (UINTPTR)p->payload);
+#endif
+
 		rx_pbufs_storage[index + bdindex] = (UINTPTR)p;
 	}
 }
@@ -771,7 +797,15 @@ XStatus init_dma(struct xemac_s *xemac)
 			Xil_DCacheInvalidateRange((UINTPTR)p->payload, (UINTPTR)XEMACPS_MAX_FRAME_SIZE);
 		}
 #endif
+
+#ifdef LWIP_MEMORY_ALIASING
+		if((UINTPTR)p->payload >= LWIP_ALIASED_BASE && (UINTPTR)p->payload < LWIP_ALIASED_SIZE)
+			XEmacPs_BdSetAddressRx(rxbd, (UINTPTR)p->payload + LWIP_ALIASED_OFFSET);
+		else
+			XEmacPs_BdSetAddressRx(rxbd, (UINTPTR)p->payload);
+#else
 		XEmacPs_BdSetAddressRx(rxbd, (UINTPTR)p->payload);
+#endif
 
 		rx_pbufs_storage[index + bdindex] = (UINTPTR)p;
 	}
