@@ -24,6 +24,10 @@
 #include "ida-lwip/ida_lwip_monitor.h"
 #include "ida-lwip/ida_lwip_filter.h"
 
+#define SOCK_SUPERV_TASK_STACK_SIZE 1024
+#define SOCK_SUPERV_TASK_PRIO OS_LOWEST_PRIO - 11 //same as dummy task
+static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
+
 #if LWIP_CHECKSUM_ON_COPY
 #include "lwip/inet_chksum.h"
 #endif
@@ -293,7 +297,7 @@ static struct ida_lwip_sock *socketFreeList;
 static struct ida_lwip_proxy_sock *proxySocketFreeList;
 static u8_t socketPriorityMap[(NUM_SOCKETS/2)+1];
 /*functions*/
-struct ida_lwip_sock *get_socket(int fd);
+
 struct ida_lwip_proxy_sock *get_proxySocket(int fd);
 static err_t lwip_recvfrom_udp_raw(struct lwip_sock *sock, int flags, struct msghdr *msg, u16_t *datagram_len, int dbg_s);
 static void free_socket(struct lwip_sock *sock, int is_tcp);
@@ -345,6 +349,8 @@ void ida_lwip_initSockets(void){
 	socketFreeList = &sockets[0];
 
 	OS_EXIT_CRITICAL();
+
+	sys_thread_new("ida_lwip_sockSupervisor", (void (*)(void*)) ida_lwip_socketSupervisorTask, NULL, 512, OS_LOWEST_PRIO - 11);
 }
 
 static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,const ip_addr_t *addr, u16_t port){

@@ -3,6 +3,7 @@ SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_monitor.c
 SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_igmp.c
 SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_prio_queue.c
 SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_sockets.c
+SRC += $(LWIP_CORE_SRC_DIR)/ida-lwip/ida_lwip_init.c
 
 SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/etharp.c
 SRC += $(LWIP_CORE_SRC_DIR)/core/ipv4/ip4.c

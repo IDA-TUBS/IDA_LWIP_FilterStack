@@ -16,6 +16,7 @@
 #include "ida-lwip/ida_lwip_monitor.h"
 #include "ida-lwip/ida_lwip_prio_queue.h"
 
+
 IDA_LWIP_FILTER_QUEUE ida_filter_queue;
 
 IDA_LWIP_FILTER_MBOX dummy_task_mbox;
@@ -27,10 +28,6 @@ struct netif *netif_local;				// local save of netif, is needed to call ip4_inpu
 IDA_LWIP_PRIO_QUEUE *inputQueue;
 IDA_LWIP_PRIO_QUEUE *outputQueue;
 
-#define SOCK_SUPERV_TASK_STACK_SIZE 1024
-#define SOCK_SUPERV_TASK_PRIO OS_LOWEST_PRIO - 11 //same as dummy task
-static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
-
 static void _ida_filter_thread(void* p_arg);
 static void _ida_filter_tx_thread(void* p_arg);
 static void _ida_filter_classicAdapter(void* p_arg);
@@ -41,9 +38,6 @@ extern err_t low_level_output(struct netif *netif, struct pbuf *p);
  * initialization of the 8 mboxes
  * */
 void ida_filter_init(struct netif *netif){
-	ida_monitor_init();
-	ida_lwip_prioQueueInit();
-
 	netif_local = netif;
 
 	/*Initialization of mbox for dummy task*/
@@ -57,22 +51,8 @@ void ida_filter_init(struct netif *netif){
 	inputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
 	outputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
 
-	ida_lwip_initSockets();
-
-//	OSTaskCreateExt(ida_lwip_socketSupervisorTask,
-//						NULL,
-//						&sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE - 1],
-//						SOCK_SUPERV_TASK_PRIO,
-//						SOCK_SUPERV_TASK_PRIO,
-//						&sockSupervTaskStk[0],
-//						SOCK_SUPERV_TASK_STACK_SIZE,
-//						DEF_NULL,
-//						(OS_TASK_OPT_STK_CLR | OS_TASK_OPT_STK_CHK));
-//	OSTaskNameSet(5, (INT8U *) "sockSupervServerTask", NULL);
-
-	sys_thread_new("ida_lwip_filter",(void (*)(void*)) _ida_filter_thread, NULL, 512,	TCPIP_THREAD_PRIO - 1);
+	sys_thread_new("ida_lwip_rx_filter",(void (*)(void*)) _ida_filter_thread, NULL, 512,	TCPIP_THREAD_PRIO - 1);
 	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, 512,	TCPIP_THREAD_PRIO - 2);
-	sys_thread_new("ida_lwip_sockSupervisor", (void (*)(void*)) ida_lwip_socketSupervisorTask, NULL, 512, OS_LOWEST_PRIO - 11);
 	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_tx_thread, NULL, 512,	OS_LOWEST_PRIO - 10);
 }
 

@@ -8,6 +8,7 @@
 #include "lwip/sys.h"
 #include "ida-lwip/ida_lwip_prio_queue.h"
 #include "lwip/memp.h"
+#include <string.h>
 
 LWIP_MEMPOOL_DECLARE(PRIO_QUEUE_POOL, 20, sizeof(IDA_LWIP_PRIO_QUEUE), "Priority Queue Pool");
 
