@@ -219,6 +219,9 @@ struct pbuf {
 
   /** For incoming packets, this contains the input netif's index */
   u8_t if_idx;
+
+  /** Priority on Ethernet */
+  u8_t ethPrio;
 };
 
 

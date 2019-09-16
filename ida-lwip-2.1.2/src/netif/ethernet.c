@@ -127,6 +127,9 @@ ethernet_input(struct pbuf *p, struct netif *netif)
     }
     type = vlan->tpid;
     prio = VLAN_PRIO(vlan);
+    p->ethPrio = prio;
+  } else {
+	  p->ethPrio = 0;
   }
 #endif /* ETHARP_SUPPORT_VLAN */
 
@@ -204,8 +207,7 @@ ethernet_output(struct netif * netif, struct pbuf * p,
   struct eth_hdr *ethhdr;
   u16_t eth_type_be = lwip_htons(eth_type);
 
-#if ETHARP_SUPPORT_VLAN && defined(LWIP_HOOK_VLAN_SET)
-  s32_t vlan_prio_vid = LWIP_HOOK_VLAN_SET(netif, p, src, dst, eth_type);
+  s32_t vlan_prio_vid = p->ethPrio;
   if (vlan_prio_vid >= 0) {
     struct eth_vlan_hdr *vlanhdr;
 
@@ -220,7 +222,6 @@ ethernet_output(struct netif * netif, struct pbuf * p,
 
     eth_type_be = PP_HTONS(ETHTYPE_VLAN);
   } else
-#endif /* ETHARP_SUPPORT_VLAN && defined(LWIP_HOOK_VLAN_SET) */
   {
     if (pbuf_add_header(p, SIZEOF_ETH_HDR) != 0) {
       goto pbuf_header_failed;
