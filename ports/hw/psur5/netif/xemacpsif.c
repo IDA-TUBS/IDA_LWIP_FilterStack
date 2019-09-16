@@ -333,10 +333,12 @@ static err_t low_level_init(struct netif *netif)
 	xemac->topology_index = xtopology_find_index(mac_address);
 	xemac->type = xemac_type_emacps;
 
+#ifndef IDA_LWIP
 	xemacpsif->send_q = NULL;
 	xemacpsif->recv_q = pq_create_queue();
 	if (!xemacpsif->recv_q)
 		return ERR_MEM;
+#endif
 
 	/* maximum transfer unit */
 #ifdef ZYNQMP_USE_JUMBO
