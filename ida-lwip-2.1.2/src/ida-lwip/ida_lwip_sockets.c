@@ -71,50 +71,50 @@ static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
     (port) = lwip_ntohs((sin)->sin_port); }while(0)
 #endif /* LWIP_IPV4 */
 
-#if LWIP_IPV6
-#define IP6ADDR_PORT_TO_SOCKADDR(sin6, ipaddr, port) do { \
-      (sin6)->sin6_len = sizeof(struct sockaddr_in6); \
-      (sin6)->sin6_family = AF_INET6; \
-      (sin6)->sin6_port = lwip_htons((port)); \
-      (sin6)->sin6_flowinfo = 0; \
-      inet6_addr_from_ip6addr(&(sin6)->sin6_addr, ipaddr); \
-      (sin6)->sin6_scope_id = ip6_addr_zone(ipaddr); }while(0)
-#define SOCKADDR6_TO_IP6ADDR_PORT(sin6, ipaddr, port) do { \
-    inet6_addr_to_ip6addr(ip_2_ip6(ipaddr), &((sin6)->sin6_addr)); \
-    if (ip6_addr_has_scope(ip_2_ip6(ipaddr), IP6_UNKNOWN)) { \
-      ip6_addr_set_zone(ip_2_ip6(ipaddr), (u8_t)((sin6)->sin6_scope_id)); \
-    } \
-    (port) = lwip_ntohs((sin6)->sin6_port); }while(0)
-#endif /* LWIP_IPV6 */
+//#if LWIP_IPV6
+//#define IP6ADDR_PORT_TO_SOCKADDR(sin6, ipaddr, port) do { \
+//      (sin6)->sin6_len = sizeof(struct sockaddr_in6); \
+//      (sin6)->sin6_family = AF_INET6; \
+//      (sin6)->sin6_port = lwip_htons((port)); \
+//      (sin6)->sin6_flowinfo = 0; \
+//      inet6_addr_from_ip6addr(&(sin6)->sin6_addr, ipaddr); \
+//      (sin6)->sin6_scope_id = ip6_addr_zone(ipaddr); }while(0)
+//#define SOCKADDR6_TO_IP6ADDR_PORT(sin6, ipaddr, port) do { \
+//    inet6_addr_to_ip6addr(ip_2_ip6(ipaddr), &((sin6)->sin6_addr)); \
+//    if (ip6_addr_has_scope(ip_2_ip6(ipaddr), IP6_UNKNOWN)) { \
+//      ip6_addr_set_zone(ip_2_ip6(ipaddr), (u8_t)((sin6)->sin6_scope_id)); \
+//    } \
+//    (port) = lwip_ntohs((sin6)->sin6_port); }while(0)
+//#endif /* LWIP_IPV6 */
 
 #if LWIP_IPV4 && LWIP_IPV6
-static void sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_t *port);
-
-#define IS_SOCK_ADDR_LEN_VALID(namelen)  (((namelen) == sizeof(struct sockaddr_in)) || \
-                                         ((namelen) == sizeof(struct sockaddr_in6)))
-#define IS_SOCK_ADDR_TYPE_VALID(name)    (((name)->sa_family == AF_INET) || \
-                                         ((name)->sa_family == AF_INET6))
-#define SOCK_ADDR_TYPE_MATCH(name, sock) \
-       ((((name)->sa_family == AF_INET) && !(NETCONNTYPE_ISIPV6((sock)->conn->type))) || \
-       (((name)->sa_family == AF_INET6) && (NETCONNTYPE_ISIPV6((sock)->conn->type))))
-#define IPADDR_PORT_TO_SOCKADDR(sockaddr, ipaddr, port) do { \
-    if (IP_IS_ANY_TYPE_VAL(*ipaddr) || IP_IS_V6_VAL(*ipaddr)) { \
-      IP6ADDR_PORT_TO_SOCKADDR((struct sockaddr_in6*)(void*)(sockaddr), ip_2_ip6(ipaddr), port); \
-    } else { \
-      IP4ADDR_PORT_TO_SOCKADDR((struct sockaddr_in*)(void*)(sockaddr), ip_2_ip4(ipaddr), port); \
-    } } while(0)
-#define SOCKADDR_TO_IPADDR_PORT(sockaddr, ipaddr, port) sockaddr_to_ipaddr_port(sockaddr, ipaddr, &(port))
-#define DOMAIN_TO_NETCONN_TYPE(domain, type) (((domain) == AF_INET) ? \
-  (type) : (enum netconn_type)((type) | NETCONN_TYPE_IPV6))
-#elif LWIP_IPV6 /* LWIP_IPV4 && LWIP_IPV6 */
-#define IS_SOCK_ADDR_LEN_VALID(namelen)  ((namelen) == sizeof(struct sockaddr_in6))
-#define IS_SOCK_ADDR_TYPE_VALID(name)    ((name)->sa_family == AF_INET6)
-#define SOCK_ADDR_TYPE_MATCH(name, sock) 1
-#define IPADDR_PORT_TO_SOCKADDR(sockaddr, ipaddr, port) \
-        IP6ADDR_PORT_TO_SOCKADDR((struct sockaddr_in6*)(void*)(sockaddr), ip_2_ip6(ipaddr), port)
-#define SOCKADDR_TO_IPADDR_PORT(sockaddr, ipaddr, port) \
-        SOCKADDR6_TO_IP6ADDR_PORT((const struct sockaddr_in6*)(const void*)(sockaddr), ipaddr, port)
-#define DOMAIN_TO_NETCONN_TYPE(domain, netconn_type) (netconn_type)
+//static void sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_t *port);
+//
+//#define IS_SOCK_ADDR_LEN_VALID(namelen)  (((namelen) == sizeof(struct sockaddr_in)) || \
+//                                         ((namelen) == sizeof(struct sockaddr_in6)))
+//#define IS_SOCK_ADDR_TYPE_VALID(name)    (((name)->sa_family == AF_INET) || \
+//                                         ((name)->sa_family == AF_INET6))
+//#define SOCK_ADDR_TYPE_MATCH(name, sock) \
+//       ((((name)->sa_family == AF_INET) && !(NETCONNTYPE_ISIPV6((sock)->conn->type))) || \
+//       (((name)->sa_family == AF_INET6) && (NETCONNTYPE_ISIPV6((sock)->conn->type))))
+//#define IPADDR_PORT_TO_SOCKADDR(sockaddr, ipaddr, port) do { \
+//    if (IP_IS_ANY_TYPE_VAL(*ipaddr) || IP_IS_V6_VAL(*ipaddr)) { \
+//      IP6ADDR_PORT_TO_SOCKADDR((struct sockaddr_in6*)(void*)(sockaddr), ip_2_ip6(ipaddr), port); \
+//    } else { \
+//      IP4ADDR_PORT_TO_SOCKADDR((struct sockaddr_in*)(void*)(sockaddr), ip_2_ip4(ipaddr), port); \
+//    } } while(0)
+//#define SOCKADDR_TO_IPADDR_PORT(sockaddr, ipaddr, port) sockaddr_to_ipaddr_port(sockaddr, ipaddr, &(port))
+//#define DOMAIN_TO_NETCONN_TYPE(domain, type) (((domain) == AF_INET) ? \
+//  (type) : (enum netconn_type)((type) | NETCONN_TYPE_IPV6))
+//#elif LWIP_IPV6 /* LWIP_IPV4 && LWIP_IPV6 */
+//#define IS_SOCK_ADDR_LEN_VALID(namelen)  ((namelen) == sizeof(struct sockaddr_in6))
+//#define IS_SOCK_ADDR_TYPE_VALID(name)    ((name)->sa_family == AF_INET6)
+//#define SOCK_ADDR_TYPE_MATCH(name, sock) 1
+//#define IPADDR_PORT_TO_SOCKADDR(sockaddr, ipaddr, port) \
+//        IP6ADDR_PORT_TO_SOCKADDR((struct sockaddr_in6*)(void*)(sockaddr), ip_2_ip6(ipaddr), port)
+//#define SOCKADDR_TO_IPADDR_PORT(sockaddr, ipaddr, port) \
+//        SOCKADDR6_TO_IP6ADDR_PORT((const struct sockaddr_in6*)(const void*)(sockaddr), ipaddr, port)
+//#define DOMAIN_TO_NETCONN_TYPE(domain, netconn_type) (netconn_type)
 #else /*-> LWIP_IPV4: LWIP_IPV4 && LWIP_IPV6 */
 #define IS_SOCK_ADDR_LEN_VALID(namelen)  ((namelen) == sizeof(struct sockaddr_in))
 #define IS_SOCK_ADDR_TYPE_VALID(name)    ((name)->sa_family == AF_INET)
@@ -211,24 +211,24 @@ static void lwip_socket_unregister_membership(int s, const ip4_addr_t *if_addr, 
 static void lwip_socket_drop_registered_memberships(int s);
 #endif /* LWIP_IGMP */
 
-#if LWIP_IPV6_MLD
-/* This is to keep track of IP_JOIN_GROUP calls to drop the membership when
-   a socket is closed */
-struct lwip_socket_multicast_mld6_pair {
-  /** the socket */
-  struct lwip_sock *sock;
-  /** the interface index */
-  u8_t if_idx;
-  /** the group address */
-  ip6_addr_t multi_addr;
-};
-
-static struct lwip_socket_multicast_mld6_pair socket_ipv6_multicast_memberships[LWIP_SOCKET_MAX_MEMBERSHIPS];
-
-static int  lwip_socket_register_mld6_membership(int s, unsigned int if_idx, const ip6_addr_t *multi_addr);
-static void lwip_socket_unregister_mld6_membership(int s, unsigned int if_idx, const ip6_addr_t *multi_addr);
-static void lwip_socket_drop_registered_mld6_memberships(int s);
-#endif /* LWIP_IPV6_MLD */
+//#if LWIP_IPV6_MLD
+///* This is to keep track of IP_JOIN_GROUP calls to drop the membership when
+//   a socket is closed */
+//struct lwip_socket_multicast_mld6_pair {
+//  /** the socket */
+//  struct lwip_sock *sock;
+//  /** the interface index */
+//  u8_t if_idx;
+//  /** the group address */
+//  ip6_addr_t multi_addr;
+//};
+//
+//static struct lwip_socket_multicast_mld6_pair socket_ipv6_multicast_memberships[LWIP_SOCKET_MAX_MEMBERSHIPS];
+//
+//static int  lwip_socket_register_mld6_membership(int s, unsigned int if_idx, const ip6_addr_t *multi_addr);
+//static void lwip_socket_unregister_mld6_membership(int s, unsigned int if_idx, const ip6_addr_t *multi_addr);
+//static void lwip_socket_drop_registered_mld6_memberships(int s);
+//#endif /* LWIP_IPV6_MLD */
 
 
 
@@ -248,19 +248,19 @@ static int free_socket_locked(struct lwip_sock *sock, int is_tcp, struct netconn
                               union lwip_sock_lastdata *lastdata);
 static void free_socket_free_elements(int is_tcp, struct netconn *conn, union lwip_sock_lastdata *lastdata);
 
-#if LWIP_IPV4 && LWIP_IPV6
-static void
-sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_t *port)
-{
-  if ((sockaddr->sa_family) == AF_INET6) {
-    SOCKADDR6_TO_IP6ADDR_PORT((const struct sockaddr_in6 *)(const void *)(sockaddr), ipaddr, *port);
-    ipaddr->type = IPADDR_TYPE_V6;
-  } else {
-    SOCKADDR4_TO_IP4ADDR_PORT((const struct sockaddr_in *)(const void *)(sockaddr), ipaddr, *port);
-    ipaddr->type = IPADDR_TYPE_V4;
-  }
-}
-#endif /* LWIP_IPV4 && LWIP_IPV6 */
+//#if LWIP_IPV4 && LWIP_IPV6
+//static void
+//sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_t *port)
+//{
+//  if ((sockaddr->sa_family) == AF_INET6) {
+//    SOCKADDR6_TO_IP6ADDR_PORT((const struct sockaddr_in6 *)(const void *)(sockaddr), ipaddr, *port);
+//    ipaddr->type = IPADDR_TYPE_V6;
+//  } else {
+//    SOCKADDR4_TO_IP4ADDR_PORT((const struct sockaddr_in *)(const void *)(sockaddr), ipaddr, *port);
+//    ipaddr->type = IPADDR_TYPE_V4;
+//  }
+//}
+//#endif /* LWIP_IPV4 && LWIP_IPV6 */
 
 #define sock_inc_used(sock)         1
 #define sock_inc_used_locked(sock)  1
@@ -296,8 +296,9 @@ static struct ida_lwip_proxy_sock proxySockets[NUM_PROXY_SOCKETS];
 static struct ida_lwip_sock *socketFreeList;
 static struct ida_lwip_proxy_sock *proxySocketFreeList;
 static u8_t socketPriorityMap[(NUM_SOCKETS/2)+1];
-/*functions*/
 
+
+/*functions*/
 struct ida_lwip_proxy_sock *get_proxySocket(int fd);
 static err_t lwip_recvfrom_udp_raw(struct lwip_sock *sock, int flags, struct msghdr *msg, u16_t *datagram_len, int dbg_s);
 static void free_socket(struct lwip_sock *sock, int is_tcp);
@@ -316,6 +317,10 @@ static sys_mbox_t socket_mgm_queue;
  * Internal socket handling by supervisor task(*((*(socket_mgm_queue)).osmbox)).OSEventType
  */
 
+/*
+ * function to initialize array of sockets and proxy sockets and start of supervisor task
+ *
+ * */
 void ida_lwip_initSockets(void){
 	CPU_SR cpu_sr;
 
@@ -353,6 +358,15 @@ void ida_lwip_initSockets(void){
 	sys_thread_new("ida_lwip_sockSupervisor", (void (*)(void*)) ida_lwip_socketSupervisorTask, NULL, 512, OS_LOWEST_PRIO - 11);
 }
 
+/*
+ * function to enqueue packet into socket's queue (called by supervisor task)
+ *
+ * @param void* arg: ida_lwip_socket s
+ * @param pcb: pointer to pcb
+ * @param p: pointer packet buffer
+ * @param addr: currently unused
+ * @param port: currently unused
+ * */
 static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,const ip_addr_t *addr, u16_t port){
 	CPU_SR cpu_sr;
 	struct ida_lwip_sock *s;
@@ -400,7 +414,11 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 	OS_EXIT_CRITICAL();
 }
 
-
+/*
+ * function create a ida lwip socket
+ *
+ * @return ida lwip socket
+ * */
 static int _ida_lwip_socketCreate(){
 	struct ida_lwip_sock *s;
 	sys_mbox_t mbox;
@@ -465,6 +483,11 @@ static int _ida_lwip_socketCreate(){
 	return s->id;
 }
 
+/*
+ * function to create ida lwip proxy socket
+ *
+ * @return ida lwip proxy socket
+ * */
 static int _ida_lwip_proxySocketCreate(){
 	struct ida_lwip_proxy_sock *s;
 	IDA_LWIP_PRIO_QUEUE *prioQueue;
@@ -498,6 +521,13 @@ static int _ida_lwip_proxySocketCreate(){
 	return s->id;
 }
 
+/*
+ * function to bind socket to sockaddr
+ *
+ * @param s: id of socket
+ * @param name: socket address
+ * @param namelen: size of sockaddr
+ * */
 static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t namelen){
 	struct ida_lwip_sock *sock;
 	struct sockaddr_in *name_in = (struct sockaddr_in *)&name;
@@ -568,6 +598,12 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 
 }
 
+/*
+ * function to register proxy socket
+ *
+ * @param poxyFd: proxy socket id
+ * @param socketFd: socket id
+ * */
 int _ida_lwip_registerProxySocket(int proxyFd, int socketFd){
 	struct ida_lwip_proxy_sock *proxy;
 	struct ida_lwip_sock *socket;
@@ -602,6 +638,12 @@ int _ida_lwip_registerProxySocket(int proxyFd, int socketFd){
 	OS_EXIT_CRITICAL();
 }
 
+/*
+ * function to free a socket
+ *
+ * @param socket: id of socket to free
+ *
+ * */
 static int _ida_lwip_free_socket(int socket)
 {
 	if(_IDA_LWIP_IS_SOCKET(socket)){
@@ -644,6 +686,11 @@ static int _ida_lwip_free_socket(int socket)
 	}
 }
 
+/*
+ * task to supervise managment function usage
+ *
+ * @param p_arg unused
+ * */
 void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
 	(void)p_arg;
 	IDA_LWIP_SOCKET_MGM *msg;
@@ -682,6 +729,11 @@ void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
 	}
 }
 
+/*
+ * function to allocate socket management message
+ *
+ * @param mgm: pointer to message
+ * */
 static int _ida_lwip_socketMgmAlloc(IDA_LWIP_SOCKET_MGM **mgm){
 	IDA_LWIP_SOCKET_MGM *message = (IDA_LWIP_SOCKET_MGM*)LWIP_MEMPOOL_ALLOC(SOCKET_MGM_POOL);
 
@@ -699,6 +751,11 @@ static int _ida_lwip_socketMgmAlloc(IDA_LWIP_SOCKET_MGM **mgm){
 	*mgm = message;
 }
 
+/*
+ * function to free socket management message
+ *
+ * @param mgm: pointer to message
+ * */
 static int _ida_lwip_socketMgmFree(IDA_LWIP_SOCKET_MGM *mgm){
 	int result = mgm->returnValue;
 	sys_sem_free(&mgm->ackSem);
@@ -722,6 +779,12 @@ static int _ida_lwip_registerProxy(int proxy, int socket){
 	return _ida_lwip_socketMgmFree(msg);
 }
 
+/*
+ * function to get ida lwip socket to given id
+ *
+ * @param fd: socket id
+ * @return ida lwip socket
+ * */
 struct ida_lwip_sock *get_socket(int fd){
 	if(!_IDA_LWIP_IS_SOCKET(fd))
 		return NULL;
@@ -734,6 +797,12 @@ struct ida_lwip_sock *get_socket(int fd){
 	return NULL;
 }
 
+/*
+ * function to get ida lwip proxy socket to given id
+ *
+ * @param fd: proxy socket id
+ * @return ida lwip proxy socket
+ * */
 struct ida_lwip_proxy_sock *get_proxySocket(int fd){
 	if(!_IDA_LWIP_IS_PROXY(fd))
 		return NULL;
@@ -797,6 +866,13 @@ void ida_lwip_set_socket_prio(int fd, u8_t prio){
  * sendTo(): Write to socket
  ****************************************************************************/
 
+/*
+ * function to enqueue management msg to create socket
+ *
+ * @param domain: unused
+ * @param type of: socket
+ * @param protocol: unused
+ * */
 int ida_lwip_socket(int domain, int type, int protocol)
 {
 	int result;
@@ -826,6 +902,13 @@ int ida_lwip_socket(int domain, int type, int protocol)
 	return _ida_lwip_socketMgmFree(msg);
 }
 
+/*
+ * function to enqueue management msg to bind socket to address
+ *
+ * @param s: id of socket
+ * @param name: socket address
+ * @param namelen: size of sockaddr
+ * */
 int ida_lwip_bind(int s, const struct sockaddr *name, socklen_t namelen)
 {
 	IDA_LWIP_SOCKET_MGM *msg = NULL;
@@ -844,6 +927,16 @@ int ida_lwip_bind(int s, const struct sockaddr *name, socklen_t namelen)
 	return _ida_lwip_socketMgmFree(msg);
 }
 
+/*
+ * function to receive packet from socket queue
+ *
+ * @param sock: id of socket
+ * @param mem: pointer to memory for packet
+ * @param len: size
+ * @param flags: curently unused
+ * @param from: currently unused
+ * @param fromlen: currenly unused
+ * */
 ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen)
 {
 	CPU_SR cpu_sr;
@@ -895,6 +988,16 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 	}
 }
 
+/*
+ * function to enqueue packet in tx queue
+ *
+ * @param s: id of socket
+ * @param data: pointer to data
+ * @param size: size of data
+ * @param flags: curently unused
+ * @param to: sockaddr to send to
+ * @param tolen: currenly unused
+ * */
 ssize_t
 ida_lwip_sendto(int s, const void *data, size_t size, int flags,
             const struct sockaddr *to, socklen_t tolen)
@@ -936,6 +1039,12 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
 	}
 }
 
+
+/*
+ * function to close socket
+ *
+ * @param s: id of socket
+ * */
 int
 ida_lwip_close(int s)
 {
