@@ -12,10 +12,19 @@
 
 LWIP_MEMPOOL_DECLARE(PRIO_QUEUE_POOL, 20, sizeof(IDA_LWIP_PRIO_QUEUE), "Priority Queue Pool");
 
+/*
+ * funtion to initialize the memory pool for the priority queue
+ *
+ * */
 void ida_lwip_prioQueueInit(void){
 	LWIP_MEMPOOL_INIT(PRIO_QUEUE_POOL);
 }
 
+/*
+ * function to free the prority queue
+ *
+ * @param queue: priority queue to free
+ * */
 void ida_lwip_prioQueueDestroy(IDA_LWIP_PRIO_QUEUE* queue){
 	if(queue == (IDA_LWIP_PRIO_QUEUE*)NULL)
 		return;
@@ -31,6 +40,13 @@ void ida_lwip_prioQueueDestroy(IDA_LWIP_PRIO_QUEUE* queue){
 	LWIP_MEMPOOL_FREE(PRIO_QUEUE_POOL, queue);
 }
 
+/*
+ * function to create the prority queue
+ *
+ * @param size: size of the message boxes for each priority
+ *
+ * @return priority queue
+ * */
 IDA_LWIP_PRIO_QUEUE* ida_lwip_prioQueueCreate(int size){
 	IDA_LWIP_PRIO_QUEUE* queue = (IDA_LWIP_PRIO_QUEUE*)LWIP_MEMPOOL_ALLOC(PRIO_QUEUE_POOL);
 	if(queue == (IDA_LWIP_PRIO_QUEUE*)NULL)
@@ -54,7 +70,15 @@ IDA_LWIP_PRIO_QUEUE* ida_lwip_prioQueueCreate(int size){
 	return queue;
 }
 
-
+/*
+ * function to queue message into the message box for a certain priority
+ *
+ * @param queue: pointer of priority queue
+ * @param msg: mesasge to queue
+ * @param: prio: priority of the message
+ *
+ * @return err
+ * */
 inline err_t ida_lwip_prioQueuePut(IDA_LWIP_PRIO_QUEUE *queue, void *msg, u8_t prio){
 	CPU_SR cpu_sr;
 
@@ -77,6 +101,13 @@ inline err_t ida_lwip_prioQueuePut(IDA_LWIP_PRIO_QUEUE *queue, void *msg, u8_t p
 	return ERR_OK;
 }
 
+/*
+ * function to pend on the priority queue to wait for incoming message
+ *
+ * @param queue: pointer of priority queue
+ * @param timeout: timeout for waiting
+ *
+ * */
 inline void *ida_lwip_prioQueuePend(IDA_LWIP_PRIO_QUEUE *queue, u32_t timeout){
 	CPU_SR cpu_sr;
 	u16_t prio = 0;

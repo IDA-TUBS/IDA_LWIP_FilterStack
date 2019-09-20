@@ -75,7 +75,6 @@ err_t ida_filter_enqueue_pkt(void *data, u8_t prio, u8_t direction){
  *
  * @param p_arg currently unused
  * */
-
 static void _ida_filter_thread(void* p_arg){
 	void* msg =  NULL;
 	struct pbuf *p;
@@ -105,9 +104,6 @@ static void _ida_filter_thread(void* p_arg){
  *
  * @param p_arg currently unused
  * */
-
-
-
 static void _ida_filter_tx_thread(void* p_arg){
 	void* msg =  NULL;
 	IDA_LWIP_TX_REQ *txReq;
@@ -165,6 +161,15 @@ static void _ida_filter_tx_thread(void* p_arg){
 	}
 }
 
+/*
+ * function to send raw data
+ *
+ * @param data: data to send
+ * @param size: size of data
+ * @param completeSem: semaphore to signal the transmission was completed
+ *
+ * @return size of send data
+ * */
 ssize_t ida_lwip_send_raw(void *data, size_t size, sys_sem_t *completeSem)
 {
   if (size > IDA_LWIP_MAX_MSS || data == NULL) {
@@ -188,6 +193,11 @@ ssize_t ida_lwip_send_raw(void *data, size_t size, sys_sem_t *completeSem)
   return txReq.err == ERR_OK ? size : -1;
 }
 
+/*
+ * classic adapter function
+ *
+ * @param p_arg currently unused
+ * */
 static void _ida_filter_classicAdapter(void* p_arg){
 	sys_sem_t txCompleteSem;
 	if(sys_sem_new(&txCompleteSem,0) != ERR_OK){

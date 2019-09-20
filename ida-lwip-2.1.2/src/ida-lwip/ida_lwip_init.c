@@ -23,6 +23,11 @@
 #error "Memory Region size for lwip data not defined"
 #endif
 
+
+/*
+ * function to initialize all modules
+ *
+ * */
 void ida_lwip_init(struct netif *netif){
 	Xil_SetMPURegion(IDA_LWIP_MEMORY_REGION_BASE, IDA_LWIP_MEMORY_REGION_SIZE, NORM_SHARED_NCACHE | PRIV_RW_USER_RW);
 
