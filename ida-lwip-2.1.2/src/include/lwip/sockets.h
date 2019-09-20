@@ -503,13 +503,13 @@ struct in_pktinfo {
 //#define POLLWRNORM 0x80
 //#define POLLWRBAND 0x100
 //#define POLLHUP    0x200
-//typedef unsigned int nfds_t;
-//struct pollfd
-//{
-//  int fd;
-//  short events;
-//  short revents;
-//};
+typedef unsigned int nfds_t;
+struct pollfd
+{
+  int fd;
+  short events;
+  short revents;
+};
 //#endif
 
 /** LWIP_TIMEVAL_PRIVATE: if you want to use the struct timeval provided
