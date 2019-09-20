@@ -145,32 +145,32 @@ extern struct ip_globals ip_data;
 #define ip_current_dest_addr()  (&ip_data.current_iphdr_dest)
 
 #if LWIP_IPV4 && LWIP_IPV6
-/** Get the IPv4 header of the current packet.
- * This function must only be called from a receive callback (udp_recv,
- * raw_recv, tcp_accept). It will return NULL otherwise. */
-#define ip4_current_header()     ip_data.current_ip4_header
-/** Get the IPv6 header of the current packet.
- * This function must only be called from a receive callback (udp_recv,
- * raw_recv, tcp_accept). It will return NULL otherwise. */
-#define ip6_current_header()      ((const struct ip6_hdr*)(ip_data.current_ip6_header))
-/** Returns TRUE if the current IP input packet is IPv6, FALSE if it is IPv4 */
-#define ip_current_is_v6()        (ip6_current_header() != NULL)
-/** Source IPv6 address of current_header */
-#define ip6_current_src_addr()    (ip_2_ip6(&ip_data.current_iphdr_src))
-/** Destination IPv6 address of current_header */
-#define ip6_current_dest_addr()   (ip_2_ip6(&ip_data.current_iphdr_dest))
-/** Get the transport layer protocol */
-#define ip_current_header_proto() (ip_current_is_v6() ? \
-                                   IP6H_NEXTH(ip6_current_header()) :\
-                                   IPH_PROTO(ip4_current_header()))
-/** Get the transport layer header */
-#define ip_next_header_ptr()     ((const void*)((ip_current_is_v6() ? \
-  (const u8_t*)ip6_current_header() : (const u8_t*)ip4_current_header())  + ip_current_header_tot_len()))
-
-/** Source IP4 address of current_header */
-#define ip4_current_src_addr()     (ip_2_ip4(&ip_data.current_iphdr_src))
-/** Destination IP4 address of current_header */
-#define ip4_current_dest_addr()    (ip_2_ip4(&ip_data.current_iphdr_dest))
+///** Get the IPv4 header of the current packet.
+// * This function must only be called from a receive callback (udp_recv,
+// * raw_recv, tcp_accept). It will return NULL otherwise. */
+//#define ip4_current_header()     ip_data.current_ip4_header
+///** Get the IPv6 header of the current packet.
+// * This function must only be called from a receive callback (udp_recv,
+// * raw_recv, tcp_accept). It will return NULL otherwise. */
+//#define ip6_current_header()      ((const struct ip6_hdr*)(ip_data.current_ip6_header))
+///** Returns TRUE if the current IP input packet is IPv6, FALSE if it is IPv4 */
+//#define ip_current_is_v6()        (ip6_current_header() != NULL)
+///** Source IPv6 address of current_header */
+//#define ip6_current_src_addr()    (ip_2_ip6(&ip_data.current_iphdr_src))
+///** Destination IPv6 address of current_header */
+//#define ip6_current_dest_addr()   (ip_2_ip6(&ip_data.current_iphdr_dest))
+///** Get the transport layer protocol */
+//#define ip_current_header_proto() (ip_current_is_v6() ? \
+//                                   IP6H_NEXTH(ip6_current_header()) :\
+//                                   IPH_PROTO(ip4_current_header()))
+///** Get the transport layer header */
+//#define ip_next_header_ptr()     ((const void*)((ip_current_is_v6() ? \
+//  (const u8_t*)ip6_current_header() : (const u8_t*)ip4_current_header())  + ip_current_header_tot_len()))
+//
+///** Source IP4 address of current_header */
+//#define ip4_current_src_addr()     (ip_2_ip4(&ip_data.current_iphdr_src))
+///** Destination IP4 address of current_header */
+//#define ip4_current_dest_addr()    (ip_2_ip4(&ip_data.current_iphdr_dest))
 
 #elif LWIP_IPV4 /* LWIP_IPV4 && LWIP_IPV6 */
 
@@ -190,22 +190,22 @@ extern struct ip_globals ip_data;
 #define ip4_current_dest_addr()    (&ip_data.current_iphdr_dest)
 
 #elif LWIP_IPV6 /* LWIP_IPV4 && LWIP_IPV6 */
-
-/** Get the IPv6 header of the current packet.
- * This function must only be called from a receive callback (udp_recv,
- * raw_recv, tcp_accept). It will return NULL otherwise. */
-#define ip6_current_header()      ((const struct ip6_hdr*)(ip_data.current_ip6_header))
-/** Always returns TRUE when only supporting IPv6 only */
-#define ip_current_is_v6()        1
-/** Get the transport layer protocol */
-#define ip_current_header_proto() IP6H_NEXTH(ip6_current_header())
-/** Get the transport layer header */
-#define ip_next_header_ptr()     ((const void*)(((const u8_t*)ip6_current_header()) + ip_current_header_tot_len()))
-/** Source IP6 address of current_header */
-#define ip6_current_src_addr()    (&ip_data.current_iphdr_src)
-/** Destination IP6 address of current_header */
-#define ip6_current_dest_addr()   (&ip_data.current_iphdr_dest)
-
+//
+///** Get the IPv6 header of the current packet.
+// * This function must only be called from a receive callback (udp_recv,
+// * raw_recv, tcp_accept). It will return NULL otherwise. */
+//#define ip6_current_header()      ((const struct ip6_hdr*)(ip_data.current_ip6_header))
+///** Always returns TRUE when only supporting IPv6 only */
+//#define ip_current_is_v6()        1
+///** Get the transport layer protocol */
+//#define ip_current_header_proto() IP6H_NEXTH(ip6_current_header())
+///** Get the transport layer header */
+//#define ip_next_header_ptr()     ((const void*)(((const u8_t*)ip6_current_header()) + ip_current_header_tot_len()))
+///** Source IP6 address of current_header */
+//#define ip6_current_src_addr()    (&ip_data.current_iphdr_src)
+///** Destination IP6 address of current_header */
+//#define ip6_current_dest_addr()   (&ip_data.current_iphdr_dest)
+//
 #endif /* LWIP_IPV6 */
 
 /** Union source address of current_header */
@@ -221,58 +221,58 @@ extern struct ip_globals ip_data;
 #define ip_reset_option(pcb, opt) ((pcb)->so_options = (u8_t)((pcb)->so_options & ~(opt)))
 
 #if LWIP_IPV4 && LWIP_IPV6
-/**
- * @ingroup ip
- * Output IP packet, netif is selected by source address
- */
-#define ip_output(p, src, dest, ttl, tos, proto) \
-        (IP_IS_V6(dest) ? \
-        ip6_output(p, ip_2_ip6(src), ip_2_ip6(dest), ttl, tos, proto) : \
-        ip4_output(p, ip_2_ip4(src), ip_2_ip4(dest), ttl, tos, proto))
-/**
- * @ingroup ip
- * Output IP packet to specified interface
- */
-#define ip_output_if(p, src, dest, ttl, tos, proto, netif) \
-        (IP_IS_V6(dest) ? \
-        ip6_output_if(p, ip_2_ip6(src), ip_2_ip6(dest), ttl, tos, proto, netif) : \
-        ip4_output_if(p, ip_2_ip4(src), ip_2_ip4(dest), ttl, tos, proto, netif))
-/**
- * @ingroup ip
- * Output IP packet to interface specifying source address
- */
-#define ip_output_if_src(p, src, dest, ttl, tos, proto, netif) \
-        (IP_IS_V6(dest) ? \
-        ip6_output_if_src(p, ip_2_ip6(src), ip_2_ip6(dest), ttl, tos, proto, netif) : \
-        ip4_output_if_src(p, ip_2_ip4(src), ip_2_ip4(dest), ttl, tos, proto, netif))
-/** Output IP packet that already includes an IP header. */
-#define ip_output_if_hdrincl(p, src, dest, netif) \
-        (IP_IS_V6(dest) ? \
-        ip6_output_if(p, ip_2_ip6(src), LWIP_IP_HDRINCL, 0, 0, 0, netif) : \
-        ip4_output_if(p, ip_2_ip4(src), LWIP_IP_HDRINCL, 0, 0, 0, netif))
-/** Output IP packet with netif_hint */
-#define ip_output_hinted(p, src, dest, ttl, tos, proto, netif_hint) \
-        (IP_IS_V6(dest) ? \
-        ip6_output_hinted(p, ip_2_ip6(src), ip_2_ip6(dest), ttl, tos, proto, netif_hint) : \
-        ip4_output_hinted(p, ip_2_ip4(src), ip_2_ip4(dest), ttl, tos, proto, netif_hint))
-/**
- * @ingroup ip
- * Get netif for address combination. See \ref ip6_route and \ref ip4_route
- */
-#define ip_route(src, dest) \
-        (IP_IS_V6(dest) ? \
-        ip6_route(ip_2_ip6(src), ip_2_ip6(dest)) : \
-        ip4_route_src(ip_2_ip4(src), ip_2_ip4(dest)))
-/**
- * @ingroup ip
- * Get netif for IP.
- */
-#define ip_netif_get_local_ip(netif, dest) (IP_IS_V6(dest) ? \
-        ip6_netif_get_local_ip(netif, ip_2_ip6(dest)) : \
-        ip4_netif_get_local_ip(netif))
-#define ip_debug_print(is_ipv6, p) ((is_ipv6) ? ip6_debug_print(p) : ip4_debug_print(p))
-
-err_t ip_input(struct pbuf *p, struct netif *inp);
+///**
+// * @ingroup ip
+// * Output IP packet, netif is selected by source address
+// */
+//#define ip_output(p, src, dest, ttl, tos, proto) \
+//        (IP_IS_V6(dest) ? \
+//        ip6_output(p, ip_2_ip6(src), ip_2_ip6(dest), ttl, tos, proto) : \
+//        ip4_output(p, ip_2_ip4(src), ip_2_ip4(dest), ttl, tos, proto))
+///**
+// * @ingroup ip
+// * Output IP packet to specified interface
+// */
+//#define ip_output_if(p, src, dest, ttl, tos, proto, netif) \
+//        (IP_IS_V6(dest) ? \
+//        ip6_output_if(p, ip_2_ip6(src), ip_2_ip6(dest), ttl, tos, proto, netif) : \
+//        ip4_output_if(p, ip_2_ip4(src), ip_2_ip4(dest), ttl, tos, proto, netif))
+///**
+// * @ingroup ip
+// * Output IP packet to interface specifying source address
+// */
+//#define ip_output_if_src(p, src, dest, ttl, tos, proto, netif) \
+//        (IP_IS_V6(dest) ? \
+//        ip6_output_if_src(p, ip_2_ip6(src), ip_2_ip6(dest), ttl, tos, proto, netif) : \
+//        ip4_output_if_src(p, ip_2_ip4(src), ip_2_ip4(dest), ttl, tos, proto, netif))
+///** Output IP packet that already includes an IP header. */
+//#define ip_output_if_hdrincl(p, src, dest, netif) \
+//        (IP_IS_V6(dest) ? \
+//        ip6_output_if(p, ip_2_ip6(src), LWIP_IP_HDRINCL, 0, 0, 0, netif) : \
+//        ip4_output_if(p, ip_2_ip4(src), LWIP_IP_HDRINCL, 0, 0, 0, netif))
+///** Output IP packet with netif_hint */
+//#define ip_output_hinted(p, src, dest, ttl, tos, proto, netif_hint) \
+//        (IP_IS_V6(dest) ? \
+//        ip6_output_hinted(p, ip_2_ip6(src), ip_2_ip6(dest), ttl, tos, proto, netif_hint) : \
+//        ip4_output_hinted(p, ip_2_ip4(src), ip_2_ip4(dest), ttl, tos, proto, netif_hint))
+///**
+// * @ingroup ip
+// * Get netif for address combination. See \ref ip6_route and \ref ip4_route
+// */
+//#define ip_route(src, dest) \
+//        (IP_IS_V6(dest) ? \
+//        ip6_route(ip_2_ip6(src), ip_2_ip6(dest)) : \
+//        ip4_route_src(ip_2_ip4(src), ip_2_ip4(dest)))
+///**
+// * @ingroup ip
+// * Get netif for IP.
+// */
+//#define ip_netif_get_local_ip(netif, dest) (IP_IS_V6(dest) ? \
+//        ip6_netif_get_local_ip(netif, ip_2_ip6(dest)) : \
+//        ip4_netif_get_local_ip(netif))
+//#define ip_debug_print(is_ipv6, p) ((is_ipv6) ? ip6_debug_print(p) : ip4_debug_print(p))
+//
+//err_t ip_input(struct pbuf *p, struct netif *inp);
 
 #elif LWIP_IPV4 /* LWIP_IPV4 && LWIP_IPV6 */
 
@@ -295,24 +295,24 @@ err_t ip_input(struct pbuf *p, struct netif *inp);
 #define ip_input ip4_input
 
 #elif LWIP_IPV6 /* LWIP_IPV4 && LWIP_IPV6 */
-
-#define ip_output(p, src, dest, ttl, tos, proto) \
-        ip6_output(p, src, dest, ttl, tos, proto)
-#define ip_output_if(p, src, dest, ttl, tos, proto, netif) \
-        ip6_output_if(p, src, dest, ttl, tos, proto, netif)
-#define ip_output_if_src(p, src, dest, ttl, tos, proto, netif) \
-        ip6_output_if_src(p, src, dest, ttl, tos, proto, netif)
-#define ip_output_hinted(p, src, dest, ttl, tos, proto, netif_hint) \
-        ip6_output_hinted(p, src, dest, ttl, tos, proto, netif_hint)
-#define ip_output_if_hdrincl(p, src, dest, netif) \
-        ip6_output_if(p, src, LWIP_IP_HDRINCL, 0, 0, 0, netif)
-#define ip_route(src, dest) \
-        ip6_route(src, dest)
-#define ip_netif_get_local_ip(netif, dest) \
-        ip6_netif_get_local_ip(netif, dest)
-#define ip_debug_print(is_ipv6, p) ip6_debug_print(p)
-
-#define ip_input ip6_input
+//
+//#define ip_output(p, src, dest, ttl, tos, proto) \
+//        ip6_output(p, src, dest, ttl, tos, proto)
+//#define ip_output_if(p, src, dest, ttl, tos, proto, netif) \
+//        ip6_output_if(p, src, dest, ttl, tos, proto, netif)
+//#define ip_output_if_src(p, src, dest, ttl, tos, proto, netif) \
+//        ip6_output_if_src(p, src, dest, ttl, tos, proto, netif)
+//#define ip_output_hinted(p, src, dest, ttl, tos, proto, netif_hint) \
+//        ip6_output_hinted(p, src, dest, ttl, tos, proto, netif_hint)
+//#define ip_output_if_hdrincl(p, src, dest, netif) \
+//        ip6_output_if(p, src, LWIP_IP_HDRINCL, 0, 0, 0, netif)
+//#define ip_route(src, dest) \
+//        ip6_route(src, dest)
+//#define ip_netif_get_local_ip(netif, dest) \
+//        ip6_netif_get_local_ip(netif, dest)
+//#define ip_debug_print(is_ipv6, p) ip6_debug_print(p)
+//
+//#define ip_input ip6_input
 
 #endif /* LWIP_IPV6 */
 

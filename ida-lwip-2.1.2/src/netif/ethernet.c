@@ -52,14 +52,14 @@
 #include <string.h>
 
 #include "netif/ppp/ppp_opts.h"
-#if PPPOE_SUPPORT
-#include "netif/ppp/pppoe.h"
-#endif /* PPPOE_SUPPORT */
+//#if PPPOE_SUPPORT
+//#include "netif/ppp/pppoe.h"
+//#endif /* PPPOE_SUPPORT */
 
 
-#ifdef LWIP_HOOK_FILENAME
-#include LWIP_HOOK_FILENAME
-#endif
+//#ifdef LWIP_HOOK_FILENAME
+//#include LWIP_HOOK_FILENAME
+//#endif
 
 const struct eth_addr ethbroadcast = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
 const struct eth_addr ethzero = {{0, 0, 0, 0, 0, 0}};
@@ -144,13 +144,13 @@ ethernet_input(struct pbuf *p, struct netif *netif)
       }
 #endif /* LWIP_IPV4 */
     }
-#if LWIP_IPV6
-    else if ((ethhdr->dest.addr[0] == LL_IP6_MULTICAST_ADDR_0) &&
-             (ethhdr->dest.addr[1] == LL_IP6_MULTICAST_ADDR_1)) {
-      /* mark the pbuf as link-layer multicast */
-      p->flags |= PBUF_FLAG_LLMCAST;
-    }
-#endif /* LWIP_IPV6 */
+//#if LWIP_IPV6
+//    else if ((ethhdr->dest.addr[0] == LL_IP6_MULTICAST_ADDR_0) &&
+//             (ethhdr->dest.addr[1] == LL_IP6_MULTICAST_ADDR_1)) {
+//      /* mark the pbuf as link-layer multicast */
+//      p->flags |= PBUF_FLAG_LLMCAST;
+//    }
+//#endif /* LWIP_IPV6 */
     else if (eth_addr_cmp(&ethhdr->dest, &ethbroadcast)) {
       /* mark the pbuf as link-layer broadcast */
       p->flags |= PBUF_FLAG_LLBCAST;

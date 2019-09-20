@@ -118,24 +118,24 @@ extern struct udp_pcb *udp_pcbs;
    UDP code. */
 struct udp_pcb * udp_new        (void);
 struct udp_pcb * udp_new_ip_type(u8_t type);
-void             udp_remove     (struct udp_pcb *pcb);
+//void             udp_remove     (struct udp_pcb *pcb);
 err_t            udp_bind       (struct udp_pcb *pcb, const ip_addr_t *ipaddr,
                                  u16_t port);
-void             udp_bind_netif (struct udp_pcb *pcb, const struct netif* netif);
-err_t            udp_connect    (struct udp_pcb *pcb, const ip_addr_t *ipaddr,
-                                 u16_t port);
-void             udp_disconnect (struct udp_pcb *pcb);
-void             udp_recv       (struct udp_pcb *pcb, udp_recv_fn recv,
-                                 void *recv_arg);
+//void             udp_bind_netif (struct udp_pcb *pcb, const struct netif* netif);
+//err_t            udp_connect    (struct udp_pcb *pcb, const ip_addr_t *ipaddr,
+//                                 u16_t port);
+//void             udp_disconnect (struct udp_pcb *pcb);
+//void             udp_recv       (struct udp_pcb *pcb, udp_recv_fn recv,
+//                                 void *recv_arg);
 err_t            udp_sendto_if  (struct udp_pcb *pcb, struct pbuf *p,
                                  const ip_addr_t *dst_ip, u16_t dst_port,
                                  struct netif *netif);
 err_t            udp_sendto_if_src(struct udp_pcb *pcb, struct pbuf *p,
                                  const ip_addr_t *dst_ip, u16_t dst_port,
                                  struct netif *netif, const ip_addr_t *src_ip);
-err_t            udp_sendto     (struct udp_pcb *pcb, struct pbuf *p,
-                                 const ip_addr_t *dst_ip, u16_t dst_port);
-err_t            udp_send       (struct udp_pcb *pcb, struct pbuf *p);
+//err_t            udp_sendto     (struct udp_pcb *pcb, struct pbuf *p,
+//                                 const ip_addr_t *dst_ip, u16_t dst_port);
+//err_t            udp_send       (struct udp_pcb *pcb, struct pbuf *p);
 
 #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
 err_t            udp_sendto_if_chksum(struct udp_pcb *pcb, struct pbuf *p,
