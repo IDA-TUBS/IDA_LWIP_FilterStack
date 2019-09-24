@@ -53,7 +53,9 @@
 #define LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES		20
 #endif
 
-
+#define SYS_ARCH_DECL_PROTECT(lev)	CPU_SR cpu_sr;
+#define SYS_ARCH_PROTECT(lev)	OS_ENTER_CRITICAL();
+#define SYS_ARCH_UNPROTECT(lev)	OS_EXIT_CRITICAL();
 
 //struct sys_prot;
 typedef struct uint32_t * sys_prot_t;
