@@ -55,8 +55,9 @@
 #include "semphr.h"
 #include "timers.h"
 #endif
+#ifdef OS_IS_UCOS
 #include "ucos_int.h"
-
+#endif
 
 #define INTC_BASE_ADDR		XPAR_SCUGIC_0_CPU_BASEADDR
 #define INTC_DIST_BASE_ADDR	XPAR_SCUGIC_0_DIST_BASEADDR
@@ -133,26 +134,21 @@ static s32_t emac_intr_num;
 #if defined __aarch64__
 u8_t bd_space[0x200000] __attribute__ ((aligned (0x200000)));
 #elif defined (ARMR5)
-//u8_t bd_space[0x100000] __attribute__ ((aligned (0x100000))) __attribute__ ((section (".psu_r5_tcm_ram_0_MEM_0")));
-/*
- * We are using just 1 MAC, therefore we need space for 1 rx and 1 tx BD totaling 64 KB
- * This means 32KB RxBD = 4096 BDs + 32KB TxBD = 4096 BDs
- *  */
-typedef struct {
-	u32_t	r1;
-	u32_t 	r2;
-}BUFFER_DESC;
+/* One buffer descriptor consists of two words */
+#define BD_SIZE 	 (XEMACPS_BD_NUM_WORDS * 4)
+/* RX and TX descriptors + 2 dummy descriptors */
+#define BD_COUNT	 (XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC + 2)
 
-BUFFER_DESC bd_space[XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC] __attribute__ ((aligned (XEMACPS_BD_ALIGNMENT))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
-//BUFFER_DESC tx_bd_terminate __attribute__ ((aligned (8))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
-//BUFFER_DESC rx_bd_terminate __attribute__ ((aligned (8))) __attribute__ ((section (".psu_ocm_ram_0_MEM_strongly")));
+/* Reserve a larger region (e.g. 4, 8, 16k,...) for buffer descriptors */
+#ifndef BD_REGION_SIZE
+#define BD_REGION_SIZE	(4 * 1024)
+#endif
+#if BD_REGION_SIZE < (BD_COUNT * BD_SIZE)
+#error "Buffer descriptors will not fit in region. Increase BD_REGION_SIZE"
+#endif
+u8_t bd_space[BD_REGION_SIZE] __attribute__ ((aligned (BD_REGION_SIZE))) __attribute__ ((section (".psu_lwip_tcm")));
 #else
-typedef struct {
-	u32_t	r1;
-	u32_t 	r2;
-}BUFFER_DESC;
-
-BUFFER_DESC bd_space[XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC] __attribute__ ((aligned (0x10000))) __attribute__ ((section (".ps7_ram_1")));
+u8_t bd_space[0x100000] __attribute__ ((aligned (0x100000)));
 #endif
 static volatile u32_t bd_space_index = 0;
 static volatile u32_t bd_space_attr_set = 0;
@@ -493,7 +489,6 @@ void setup_rx_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *rxring)
 #else
 		XEmacPs_BdSetAddressRx(rxbd, (UINTPTR)p->payload);
 #endif
-
 		rx_pbufs_storage[index + bdindex] = (UINTPTR)p;
 	}
 }
@@ -560,7 +555,6 @@ void emacps_recv_handler(void *arg)
 #ifdef IDA_LWIP
 			ida_lwip_input(p);
 #else
-
 			if (pq_enqueue(xemacpsif->recv_q, (void*)p) < 0) {
 #if LINK_STATS
 				lwip_stats.link.memerr++;
@@ -655,7 +649,7 @@ XStatus init_dma(struct xemac_s *xemac)
 	 */
 	if (bd_space_attr_set == 0) {
 #if defined (ARMR5)
-	Xil_SetMPURegion((s32_t)bd_space, 0x1000, STRONG_ORDERD_SHARED | PRIV_RW_USER_RW);
+	Xil_SetMPURegion((s32_t)bd_space, BD_REGION_SIZE, STRONG_ORDERD_SHARED | PRIV_RW_USER_RW);
 #else
 #if defined __aarch64__
 	Xil_SetTlbAttributes((u64)bd_space, NORM_NONCACHE | INNER_SHAREABLE);
@@ -671,19 +665,18 @@ XStatus init_dma(struct xemac_s *xemac)
 	LWIP_DEBUGF(NETIF_DEBUG, ("rxringptr: 0x%08x\r\n", rxringptr));
 	LWIP_DEBUGF(NETIF_DEBUG, ("txringptr: 0x%08x\r\n", txringptr));
 
-	/* Allocate Space for Rx and Tx bds each to take care of extreme cases */
-
+	/* Allocate Space for Rx and Tx bds each */
 	tempaddress = (UINTPTR)&(bd_space[bd_space_index]);
 	xemacpsif->rx_bdspace = (void *)tempaddress;
-	bd_space_index += XLWIP_CONFIG_N_RX_DESC * sizeof(BUFFER_DESC) / (XEMACPS_BD_NUM_WORDS * 4);
+	bd_space_index += XLWIP_CONFIG_N_RX_DESC * BD_SIZE;
 	tempaddress = (UINTPTR)&(bd_space[bd_space_index]);
 	xemacpsif->tx_bdspace = (void *)tempaddress;
-	bd_space_index += XLWIP_CONFIG_N_TX_DESC * sizeof(BUFFER_DESC) / (XEMACPS_BD_NUM_WORDS * 4);
+	bd_space_index += XLWIP_CONFIG_N_TX_DESC * BD_SIZE;
 	if (gigeversion > 2) {
 		/* Hold one dummy Desc for unused Queues */
 		tempaddress = (UINTPTR)&(bd_space[bd_space_index]);
 		bdrxterminate = (XEmacPs_Bd *)tempaddress;
-		bd_space_index += sizeof(BUFFER_DESC)/ (XEMACPS_BD_NUM_WORDS * 4);
+		bd_space_index += BD_SIZE;
 		tempaddress = (UINTPTR)&(bd_space[bd_space_index]);
 		bdtxterminate = (XEmacPs_Bd *)tempaddress;
 	}
@@ -709,9 +702,20 @@ XStatus init_dma(struct xemac_s *xemac)
 	 * Create the RxBD ring
 	 */
 
+#ifdef LWIP_MEMORY_ALIASING
+	if((UINTPTR) xemacpsif->rx_bdspace >= LWIP_ALIASED_BASE && (UINTPTR) xemacpsif->rx_bdspace < LWIP_ALIASED_SIZE)
+		status = XEmacPs_BdRingCreate(rxringptr, (UINTPTR) xemacpsif->rx_bdspace + LWIP_ALIASED_OFFSET,
+						(UINTPTR) xemacpsif->rx_bdspace, BD_ALIGNMENT,
+							 XLWIP_CONFIG_N_RX_DESC);
+	else
+		status = XEmacPs_BdRingCreate(rxringptr, (UINTPTR) xemacpsif->rx_bdspace,
+						(UINTPTR) xemacpsif->rx_bdspace, BD_ALIGNMENT,
+							 XLWIP_CONFIG_N_RX_DESC);
+#else
 	status = XEmacPs_BdRingCreate(rxringptr, (UINTPTR) xemacpsif->rx_bdspace,
 				(UINTPTR) xemacpsif->rx_bdspace, BD_ALIGNMENT,
 				     XLWIP_CONFIG_N_RX_DESC);
+#endif
 
 	if (status != XST_SUCCESS) {
 		LWIP_DEBUGF(NETIF_DEBUG, ("Error setting up RxBD space\r\n"));
@@ -729,9 +733,20 @@ XStatus init_dma(struct xemac_s *xemac)
 	/*
 	 * Create the TxBD ring
 	 */
+#ifdef LWIP_MEMORY_ALIASING
+	if((UINTPTR) xemacpsif->rx_bdspace >= LWIP_ALIASED_BASE && (UINTPTR) xemacpsif->rx_bdspace < LWIP_ALIASED_SIZE)
+		status = XEmacPs_BdRingCreate(txringptr, (UINTPTR) xemacpsif->tx_bdspace + LWIP_ALIASED_OFFSET,
+					(UINTPTR) xemacpsif->tx_bdspace, BD_ALIGNMENT,
+						 XLWIP_CONFIG_N_TX_DESC);
+	else
+		status = XEmacPs_BdRingCreate(txringptr, (UINTPTR) xemacpsif->tx_bdspace,
+					(UINTPTR) xemacpsif->tx_bdspace, BD_ALIGNMENT,
+					 	 XLWIP_CONFIG_N_TX_DESC);
+#else
 	status = XEmacPs_BdRingCreate(txringptr, (UINTPTR) xemacpsif->tx_bdspace,
 				(UINTPTR) xemacpsif->tx_bdspace, BD_ALIGNMENT,
 				     XLWIP_CONFIG_N_TX_DESC);
+#endif
 
 	if (status != XST_SUCCESS) {
 		return ERR_IF;
@@ -809,11 +824,11 @@ XStatus init_dma(struct xemac_s *xemac)
 
 		rx_pbufs_storage[index + bdindex] = (UINTPTR)p;
 	}
-	XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.RxBdRing.BaseBdAddr, 0, XEMACPS_RECV);
+	XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.RxBdRing.PhysBaseAddr, 0, XEMACPS_RECV);
 	if (gigeversion > 2) {
-		XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.TxBdRing.BaseBdAddr, 1, XEMACPS_SEND);
+		XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.TxBdRing.PhysBaseAddr, 1, XEMACPS_SEND);
 	}else {
-		XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.TxBdRing.BaseBdAddr, 0, XEMACPS_SEND);
+		XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.TxBdRing.PhysBaseAddr, 0, XEMACPS_SEND);
 	}
 	if (gigeversion > 2)
 	{
@@ -828,13 +843,31 @@ XStatus init_dma(struct xemac_s *xemac)
 		XEmacPs_BdClear(bdrxterminate);
 		XEmacPs_BdSetAddressRx(bdrxterminate, (XEMACPS_RXBUF_NEW_MASK |
 						XEMACPS_RXBUF_WRAP_MASK));
+#ifdef LWIP_MEMORY_ALIASING
+		if((UINTPTR)bdrxterminate >= LWIP_ALIASED_BASE && (UINTPTR)bdrxterminate < LWIP_ALIASED_SIZE)
+			XEmacPs_Out32((xemacpsif->emacps.Config.BaseAddress + XEMACPS_RXQ1BASE_OFFSET),
+									   (UINTPTR)bdrxterminate + LWIP_ALIASED_OFFSET);
+		else
+			XEmacPs_Out32((xemacpsif->emacps.Config.BaseAddress + XEMACPS_RXQ1BASE_OFFSET),
+									   (UINTPTR)bdrxterminate);
+#else
 		XEmacPs_Out32((xemacpsif->emacps.Config.BaseAddress + XEMACPS_RXQ1BASE_OFFSET),
 				   (UINTPTR)bdrxterminate);
+#endif
 		XEmacPs_BdClear(bdtxterminate);
 		XEmacPs_BdSetStatus(bdtxterminate, (XEMACPS_TXBUF_USED_MASK |
 						XEMACPS_TXBUF_WRAP_MASK));
+#ifdef LWIP_MEMORY_ALIASING
+		if((UINTPTR)bdtxterminate >= LWIP_ALIASED_BASE && (UINTPTR)bdtxterminate < LWIP_ALIASED_SIZE)
+			XEmacPs_Out32((xemacpsif->emacps.Config.BaseAddress + XEMACPS_TXQBASE_OFFSET),
+									   (UINTPTR)bdtxterminate + LWIP_ALIASED_OFFSET);
+		else
+			XEmacPs_Out32((xemacpsif->emacps.Config.BaseAddress + XEMACPS_TXQBASE_OFFSET),
+									   (UINTPTR)bdtxterminate);
+#else
 		XEmacPs_Out32((xemacpsif->emacps.Config.BaseAddress + XEMACPS_TXQBASE_OFFSET),
 				   (UINTPTR)bdtxterminate);
+#endif
 	}
 
 
@@ -843,13 +876,21 @@ XStatus init_dma(struct xemac_s *xemac)
 	 * interrupt for the device occurs, the handler defined above performs
 	 * the specific interrupt processing for the device.
 	 */
+#ifdef OS_IS_UCOS
 	UCOS_IntVectSet(xtopologyp->scugic_emac_intr, 1, 0, (UCOS_INT_FNCT_PTR) *XEmacPs_IntrHandler, (void *)&xemacpsif->emacps);
-
+#else
+	XScuGic_RegisterHandler(INTC_BASE_ADDR, xtopologyp->scugic_emac_intr,
+				(Xil_ExceptionHandler)XEmacPs_IntrHandler,
+						(void *)&xemacpsif->emacps);
+#endif
 	/*
 	 * Enable the interrupt for emacps.
 	 */
+#ifdef OS_IS_UCOS
 	UCOS_IntSrcEn(xtopologyp->scugic_emac_intr);
-
+#else
+	XScuGic_EnableIntr(INTC_DIST_BASE_ADDR, (u32) xtopologyp->scugic_emac_intr);
+#endif
 	emac_intr_num = (u32) xtopologyp->scugic_emac_intr;
 	return 0;
 }
@@ -953,12 +994,14 @@ void reset_dma(struct xemac_s *xemac)
 	XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.TxBdRing.BaseBdAddr, txqueuenum, XEMACPS_SEND);
 }
 
-//void emac_disable_intr(void)
-//{
-//	XScuGic_DisableIntr(INTC_DIST_BASE_ADDR, emac_intr_num);
-//}
-//
-//void emac_enable_intr(void)
-//{
-//	XScuGic_EnableIntr(INTC_DIST_BASE_ADDR, emac_intr_num);
-//}
+#ifndef OS_IS_UCOS
+void emac_disable_intr(void)
+{
+	XScuGic_DisableIntr(INTC_DIST_BASE_ADDR, emac_intr_num);
+}
+
+void emac_enable_intr(void)
+{
+	XScuGic_EnableIntr(INTC_DIST_BASE_ADDR, emac_intr_num);
+}
+#endif
