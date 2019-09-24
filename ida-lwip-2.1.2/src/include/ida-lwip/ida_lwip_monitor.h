@@ -21,6 +21,7 @@ typedef struct MONITORED_PBUF
 {
    struct pbuf_custom p;
    PBUF_MONITOR_T* monitor_ref;
+   void* rxBuffer;
 } MONITORED_PBUF_T;
 
 struct pbuf * ida_monitored_pbuf_alloc(u16_t length);

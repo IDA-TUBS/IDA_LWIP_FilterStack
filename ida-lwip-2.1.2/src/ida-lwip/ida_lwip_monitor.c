@@ -24,12 +24,11 @@ static void _ida_monitored_pbuf_free(struct pbuf *p)
 	CPU_SR cpu_sr;
 	OS_ENTER_CRITICAL();
 	MONITORED_PBUF_T* my_pbuf = (MONITORED_PBUF_T*)p;
+	LWIP_MEMPOOL_FREE(RX_DATA_POOL, my_pbuf->rxBuffer);
 	if(my_pbuf->monitor_ref != (PBUF_MONITOR_T*)NULL){
 		my_pbuf->monitor_ref->counter--;
 		my_pbuf->monitor_ref = NULL;
 	}
-	void *my_pbuf_data = my_pbuf->p.pbuf.payload;
-	LWIP_MEMPOOL_FREE(RX_DATA_POOL, my_pbuf_data);
 	LWIP_MEMPOOL_FREE(RX_POOL, my_pbuf);
 	OS_EXIT_CRITICAL();
 }
@@ -48,6 +47,7 @@ struct pbuf * ida_monitored_pbuf_alloc(u16_t length){
 	void *my_pbuf_data = LWIP_MEMPOOL_ALLOC(RX_DATA_POOL);
 	my_pbuf->p.custom_free_function = _ida_monitored_pbuf_free;
 	my_pbuf->monitor_ref         = NULL;
+	my_pbuf->rxBuffer = my_pbuf_data;
 
 	struct pbuf* p = pbuf_alloced_custom(PBUF_RAW,
 		length,
