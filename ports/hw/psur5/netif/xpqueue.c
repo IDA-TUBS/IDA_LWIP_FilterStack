@@ -38,7 +38,7 @@
 #define NUM_QUEUES	2
 
 #if defined (ARMR5)
-pq_queue_t pq_queue[NUM_QUEUES] __attribute__ ((section (".psu_ocm_ram_0_MEM_0")));
+pq_queue_t pq_queue[NUM_QUEUES] __attribute__ ((section (".psu_lwip_tcm")));
 #else
 pq_queue_t pq_queue[NUM_QUEUES] __attribute__ ((section (".ps7_ram_1")));
 #endif
