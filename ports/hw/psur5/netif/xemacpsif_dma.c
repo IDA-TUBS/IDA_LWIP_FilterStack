@@ -990,8 +990,8 @@ void reset_dma(struct xemac_s *xemac)
 		txqueuenum = 0;
 	}
 
-	XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.RxBdRing.PhysBaseBdAddr, 0, XEMACPS_RECV);
-	XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.TxBdRing.PhysBaseBdAddr, txqueuenum, XEMACPS_SEND);
+	XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.RxBdRing.PhysBaseAddr, 0, XEMACPS_RECV);
+	XEmacPs_SetQueuePtr(&(xemacpsif->emacps), xemacpsif->emacps.TxBdRing.PhysBaseAddr, txqueuenum, XEMACPS_SEND);
 }
 
 #ifndef OS_IS_UCOS
