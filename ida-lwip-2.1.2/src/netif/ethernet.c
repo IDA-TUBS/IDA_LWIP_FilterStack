@@ -214,7 +214,19 @@ ethernet_output(struct netif * netif, struct pbuf * p,
     LWIP_ASSERT("prio_vid must be <= 0xFFFF", vlan_prio_vid <= 0xFFFF);
 
     if (pbuf_add_header(p, SIZEOF_ETH_HDR + SIZEOF_VLAN_HDR) != 0) {
-      goto pbuf_header_failed;
+    	/* allocate header in a separate new pbuf */
+    	  struct pbuf *q;
+    	    q = pbuf_alloc(PBUF_TRANSPORT, (SIZEOF_ETH_HDR + SIZEOF_VLAN_HDR), PBUF_RAM);
+    	    /* new header pbuf could not be allocated? */
+    	    if (q == NULL) {
+    	        goto pbuf_header_failed;
+    	    }
+    	    if (p->tot_len = 0) {
+    	        goto pbuf_header_failed;
+
+    	    }
+	    	/* chain header q in front of given pbuf p (only if p contains data) */
+	        pbuf_chain(q, p);
     }
     vlanhdr = (struct eth_vlan_hdr *)(((u8_t *)p->payload) + SIZEOF_ETH_HDR);
     vlanhdr->tpid     = eth_type_be;
