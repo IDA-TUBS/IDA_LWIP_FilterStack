@@ -76,6 +76,7 @@ struct ida_lwip_sock{
 	PBUF_MONITOR_T *monitor;
 	struct udp_pcb *pcb;
 	struct ida_lwip_proxy_sock *proxy;
+	struct pbuf* p_cur;
 };
 
 struct ida_lwip_proxy_sock{

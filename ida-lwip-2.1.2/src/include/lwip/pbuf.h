@@ -202,6 +202,9 @@ struct pbuf {
   /** length of this buffer */
   u16_t len;
 
+  /** Length already copied (for partial recv() )   */
+  u16_t copied_len;
+
   /** a bit field indicating pbuf type and allocation sources
       (see PBUF_TYPE_FLAG_*, PBUF_ALLOC_FLAG_* and PBUF_TYPE_ALLOC_SRC_MASK)
     */

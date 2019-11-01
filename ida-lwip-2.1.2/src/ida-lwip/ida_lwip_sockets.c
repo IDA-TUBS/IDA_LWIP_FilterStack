@@ -395,6 +395,8 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 		return;
 	}
 
+	p->copied_len = p->tot_len;
+
 	OS_ENTER_CRITICAL();
 	if (sys_mbox_trypost(&s->mbox, p) != ERR_OK) {
 		pbuf_free(p);
@@ -952,13 +954,19 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 		if(s->proxy == NULL)
 			sys_arch_sem_wait(&s->rxSem, 0);
 
-		OS_ENTER_CRITICAL();
-		sys_arch_mbox_tryfetch(&s->mbox, (void*)&p);
-		s->pendingCounter--;
-		OS_EXIT_CRITICAL();
+		if(s->p_cur == NULL){
 
-		if(p == NULL)
-			return -1;
+			OS_ENTER_CRITICAL();
+			sys_arch_mbox_tryfetch(&s->mbox, (void*)&p);
+			s->pendingCounter--;
+			s->p_cur = p;
+			OS_EXIT_CRITICAL();
+
+			if(p == NULL)
+				return -1;
+		} else {
+			p = s->p_cur;
+		}
 
 		if(p->tot_len >= len)
 			copyLen = len;
@@ -967,7 +975,12 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 
 		memcpy(mem, p->payload, copyLen);
 
-		pbuf_free(p);
+		p->copied_len += copyLen;
+
+		if(p->copied_len == p->tot_len){
+			pbuf_free(p);
+			s->p_cur = NULL;
+		}
 
 		return copyLen;
 	} else if(_IDA_LWIP_IS_PROXY(sock)){
