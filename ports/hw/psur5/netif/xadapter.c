@@ -44,9 +44,13 @@
 #include "lwip/stats.h"
 #include "lwip/sys.h"
 #include "lwip/ip.h"
+#if LWIP_TCP == 1
 #include "lwip/tcp.h"
+#endif
 #include "lwip/udp.h"
+#if LWIP_TCP == 1
 #include "lwip/priv/tcp_priv.h"
+#endif
 
 #include "netif/etharp.h"
 #include "netif/xadapter.h"
@@ -64,7 +68,9 @@
 #endif
 
 #if !NO_SYS
+#ifndef IDA_LWIP
 #include "lwip/tcpip.h"
+#endif
 #endif
 
 #ifdef IDA_LWIP
