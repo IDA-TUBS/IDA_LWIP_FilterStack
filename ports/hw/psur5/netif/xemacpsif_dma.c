@@ -371,7 +371,9 @@ XStatus emacps_sgsend(xemacpsif_s *xemacpsif, struct pbuf *p)
 
 		tx_pbufs_storage[index + bdindex] = (UINTPTR)q;
 
+#ifndef IDA_LWIP
 		pbuf_ref(q);
+#endif
 		last_txbd = txbd;
 		XEmacPs_BdClearLast(txbd);
 		txbd = XEmacPs_BdRingNext(txring, txbd);

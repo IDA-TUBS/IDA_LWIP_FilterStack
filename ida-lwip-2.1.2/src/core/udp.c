@@ -897,13 +897,13 @@ udp_sendto_if_src_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *d
   /* @todo: must this be increased even if error occurred? */
   MIB2_STATS_INC(mib2.udpoutdatagrams);
 
-  /* did we chain a separate header pbuf earlier? */
-  if (q != p) {
-    /* free the header pbuf */
-    pbuf_free(q);
-    q = NULL;
-    /* p is still referenced by the caller, and will live on */
-  }
+//  /* did we chain a separate header pbuf earlier? */
+//  if (q != p) {
+//    /* free the header pbuf */
+//    pbuf_free(q);
+//    q = NULL;
+//    /* p is still referenced by the caller, and will live on */
+//  }
 
   UDP_STATS_INC(udp.xmit);
   return err;

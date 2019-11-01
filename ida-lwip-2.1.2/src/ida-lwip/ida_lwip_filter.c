@@ -126,6 +126,7 @@ static void _ida_filter_tx_thread(void* p_arg){
 					if (p != NULL){
 						p->payload = txReq->data;
 						p->len = txReq->size;
+						p->tot_len = p->len;
 						p->ethPrio = ida_lwip_get_socket_prio(sock->id);
 						if (to) {
 							addr.addr = to->sin_addr.s_addr;
