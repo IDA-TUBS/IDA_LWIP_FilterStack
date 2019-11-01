@@ -59,11 +59,11 @@
 #include "lwip/ip6.h"
 #include "lwip/ip6_addr.h"
 #include "lwip/netif.h"
-#include "lwip/icmp.h"
-#include "lwip/icmp6.h"
+//#include "lwip/icmp.h"
+//#include "lwip/icmp6.h"
 #include "lwip/stats.h"
-#include "lwip/snmp.h"
-#include "lwip/dhcp.h"
+//#include "lwip/snmp.h"
+//#include "lwip/dhcp.h"
 
 #include <string.h>
 
@@ -1016,7 +1016,6 @@ udp_bind(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
   ip_addr_set_ipaddr(&pcb->local_ip, ipaddr);
 
   pcb->local_port = port;
-  mib2_udp_bind(pcb);
   /* pcb not active yet? */
   if (rebind == 0) {
     /* place the PCB on the active list if not already there */

@@ -49,7 +49,7 @@
 #include "lwip/stats.h"
 #include "lwip/etharp.h"
 #include "lwip/ip.h"
-#include "lwip/snmp.h"
+//#include "lwip/snmp.h"
 
 #include <string.h>
 
@@ -94,7 +94,6 @@ ethernet_input(struct pbuf *p, struct netif *netif)
     /* a packet with only an ethernet header (or less) is not valid for us */
     ETHARP_STATS_INC(etharp.proterr);
     ETHARP_STATS_INC(etharp.drop);
-    MIB2_STATS_NETIF_INC(netif, ifinerrors);
     pbuf_free(p);
     return ERR_OK;
   }
@@ -123,7 +122,6 @@ ethernet_input(struct pbuf *p, struct netif *netif)
       /* a packet with only an ethernet/vlan header (or less) is not valid for us */
       ETHARP_STATS_INC(etharp.proterr);
       ETHARP_STATS_INC(etharp.drop);
-      MIB2_STATS_NETIF_INC(netif, ifinerrors);
       pbuf_free(p);
 	  return ERR_OK;
     }

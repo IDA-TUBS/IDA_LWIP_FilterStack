@@ -48,12 +48,12 @@
 #include "lwip/netif.h"
 #include "lwip/sockets.h"
 #include "lwip/ip.h"
-#include "lwip/raw.h"
+//#include "lwip/raw.h"
 #include "lwip/udp.h"
-#include "lwip/priv/tcp_priv.h"
+//#include "lwip/priv/tcp_priv.h"
 #include "lwip/igmp.h"
-#include "lwip/dns.h"
-#include "lwip/timeouts.h"
+//#include "lwip/dns.h"
+//#include "lwip/timeouts.h"
 #include "lwip/etharp.h"
 #include "lwip/ip6.h"
 #include "lwip/nd6.h"
@@ -357,26 +357,7 @@ lwip_init(void)
   etharp_init();
 #endif /* LWIP_ARP */
 #endif /* LWIP_IPV4 */
-#if LWIP_RAW
-  raw_init();
-#endif /* LWIP_RAW */
 #if LWIP_UDP
   udp_init();
 #endif /* LWIP_UDP */
-#if LWIP_TCP
-  tcp_init();
-#endif /* LWIP_TCP */
-#if LWIP_IGMP
-  igmp_init();
-#endif /* LWIP_IGMP */
-#if LWIP_DNS
-  dns_init();
-#endif /* LWIP_DNS */
-#if PPP_SUPPORT
-  ppp_init();
-#endif
-
-#if LWIP_TIMERS
-  sys_timeouts_init();
-#endif /* LWIP_TIMERS */
 }

@@ -59,10 +59,10 @@
 #include "lwip/ip_addr.h"
 #include "lwip/ip6_addr.h"
 #include "lwip/netif.h"
-#include "lwip/priv/tcp_priv.h"
+//#include "lwip/priv/tcp_priv.h"
 #include "lwip/udp.h"
-#include "lwip/priv/raw_priv.h"
-#include "lwip/snmp.h"
+//#include "lwip/priv/raw_priv.h"
+//#include "lwip/snmp.h"
 #include "lwip/igmp.h"
 #include "lwip/etharp.h"
 #include "lwip/stats.h"
@@ -414,7 +414,6 @@ netif_add(struct netif *netif,
   netif->next = netif_list;
   netif_list = netif;
 #endif /* "LWIP_SINGLE_NETIF */
-  mib2_netif_added(netif);
 
 #if LWIP_IGMP
   /* start IGMP processing */
@@ -472,13 +471,9 @@ netif_do_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr, ip_addr_t *ol
     LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_STATE, ("netif_set_ipaddr: netif address being changed\n"));
     netif_do_ip_addr_changed(old_addr, &new_addr);
 
-    mib2_remove_ip4(netif);
-    mib2_remove_route_ip4(0, netif);
     /* set new IP address to netif */
     ip4_addr_set(ip_2_ip4(&netif->ip_addr), ipaddr);
     IP_SET_TYPE_VAL(netif->ip_addr, IPADDR_TYPE_V4);
-    mib2_add_ip4(netif);
-    mib2_add_route_ip4(0, netif);
 
     netif_issue_reports(netif, NETIF_REPORT_TYPE_IPV4);
 
@@ -532,11 +527,9 @@ netif_do_set_netmask(struct netif *netif, const ip4_addr_t *netmask, ip_addr_t *
 #else
     LWIP_UNUSED_ARG(old_nm);
 #endif
-    mib2_remove_route_ip4(0, netif);
     /* set new netmask to netif */
     ip4_addr_set(ip_2_ip4(&netif->netmask), netmask);
     IP_SET_TYPE_VAL(netif->netmask, IPADDR_TYPE_V4);
-    mib2_add_route_ip4(0, netif);
     LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: netmask of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
                 netif->name[0], netif->name[1],
                 ip4_addr1_16(netif_ip4_netmask(netif)),
@@ -779,7 +772,6 @@ netif_remove(struct netif *netif)
     netif_set_down(netif);
   }
 
-  mib2_remove_ip4(netif);
 
   /* this netif is default? */
   if (netif_default == netif) {
@@ -804,7 +796,6 @@ netif_remove(struct netif *netif)
     }
   }
 #endif /* !LWIP_SINGLE_NETIF */
-  mib2_netif_removed(netif);
 #if LWIP_NETIF_REMOVE_CALLBACK
   if (netif->remove_callback) {
     netif->remove_callback(netif);
@@ -825,13 +816,6 @@ netif_set_default(struct netif *netif)
 {
   LWIP_ASSERT_CORE_LOCKED();
 
-  if (netif == NULL) {
-    /* remove default route */
-    mib2_remove_route_ip4(1, netif);
-  } else {
-    /* install default route */
-    mib2_add_route_ip4(1, netif);
-  }
   netif_default = netif;
   LWIP_DEBUGF(NETIF_DEBUG, ("netif: setting default interface %c%c\n",
                             netif ? netif->name[0] : '\'', netif ? netif->name[1] : '\''));
@@ -851,8 +835,6 @@ netif_set_up(struct netif *netif)
 
   if (!(netif->flags & NETIF_FLAG_UP)) {
     netif_set_flags(netif, NETIF_FLAG_UP);
-
-    MIB2_COPY_SYSUPTIME_TO(&netif->ts);
 
     NETIF_STATUS_CALLBACK(netif);
 
@@ -934,7 +916,6 @@ netif_set_down(struct netif *netif)
 #endif
 
     netif_clear_flags(netif, NETIF_FLAG_UP);
-    MIB2_COPY_SYSUPTIME_TO(&netif->ts);
 
 #if LWIP_IPV4 && LWIP_ARP
     if (netif->flags & NETIF_FLAG_ETHARP) {
