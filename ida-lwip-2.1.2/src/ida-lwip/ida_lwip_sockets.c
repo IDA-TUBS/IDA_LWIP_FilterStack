@@ -395,7 +395,7 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 		return;
 	}
 
-	p->copied_len = p->tot_len;
+	p->copied_len = 0;
 
 	OS_ENTER_CRITICAL();
 	if (sys_mbox_trypost(&s->mbox, p) != ERR_OK) {
