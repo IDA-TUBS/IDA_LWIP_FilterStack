@@ -5,6 +5,8 @@
 
 /*
  * Copyright (c) 2017 Joel Cunningham, Garmin International, Inc. <joel.cunningham@garmin.com>
+ * Copyright (c) 2019 Kai-Björn Gemlau, Institute of Computer and Network Engineering, TU Braunschweig
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,

@@ -6,6 +6,8 @@
 
 /*
  * Copyright (c) 2001-2004 Swedish Institute of Computer Science.
+ * Copyright (c) 2019 Kai-Björn Gemlau, Institute of Computer and Network Engineering, TU Braunschweig
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
