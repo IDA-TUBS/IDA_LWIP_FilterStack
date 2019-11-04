@@ -34,6 +34,9 @@ static void _ida_filter_classicAdapter(void* p_arg);
 
 extern err_t low_level_output(struct netif *netif, struct pbuf *p);
 
+LWIP_MEMPOOL_DECLARE(TX_PBUF_POOL, 20, sizeof(IDA_LWIP_FILTER_PBUF), "tx Pbuf_Pool");
+
+
 /*
  * initialization of the 8 mboxes
  * */
@@ -45,6 +48,9 @@ void ida_filter_init(struct netif *netif){
 	dummy_task_mbox.count = 0;
 
 	classic_mon = ida_monitor_alloc(2);
+
+	/* Initialize tx pbufs */
+	LWIP_MEMPOOL_INIT(TX_PBUF_POOL);
 
 	/*Initialization of ida_filter_queue*/
 
@@ -99,6 +105,60 @@ static void _ida_filter_thread(void* p_arg){
 	}
 }
 
+static void _ida_lwip_tx_pbuf_free(struct pbuf *p)
+{
+	CPU_SR cpu_sr;
+	OS_ENTER_CRITICAL();
+	IDA_LWIP_FILTER_PBUF* tx_pbuf = (IDA_LWIP_FILTER_PBUF*)p;
+	sys_sem_signal(&tx_pbuf->tx_complete_sem);
+	LWIP_MEMPOOL_FREE(TX_PBUF_POOL, tx_pbuf);
+	OS_EXIT_CRITICAL();
+}
+
+static void _ida_filter_process_udp(IDA_LWIP_TX_REQ* txReq){
+	struct ida_lwip_sock *sock;
+	struct sockaddr_in *to;
+	ip_addr_t addr;
+	u16_t remote_port;
+	IDA_LWIP_FILTER_PBUF* tx_pbuf;
+	struct pbuf* p;
+	sock = get_socket(txReq->socket);
+	if (sock == NULL) {
+		txReq->err = ERR_VAL;
+		sys_sem_signal(&txReq->txCompleteSem);
+		return;
+	}
+	to = (struct sockaddr_in *)txReq->to;
+
+	tx_pbuf = (IDA_LWIP_FILTER_PBUF*)LWIP_MEMPOOL_ALLOC(TX_PBUF_POOL);
+	if(tx_pbuf == NULL){
+		txReq->err = ERR_MEM;
+		sys_sem_signal(&txReq->txCompleteSem);
+		return;
+	}
+	tx_pbuf->tx_complete_sem = txReq->txCompleteSem;
+	tx_pbuf->p.custom_free_function = _ida_lwip_tx_pbuf_free;
+	p = pbuf_alloced_custom(PBUF_TRANSPORT,0,PBUF_REF,&tx_pbuf->p,NULL,1500);
+	if ( p == NULL){
+		txReq->err = ERR_MEM;
+		sys_sem_signal(&txReq->txCompleteSem);
+		return;
+	}
+	p->payload = txReq->data;
+	p->len = txReq->size;
+	p->tot_len = p->len;
+	p->ethPrio = ida_lwip_get_socket_prio(sock->id);
+	if (to) {
+		addr.addr = to->sin_addr.s_addr;
+		remote_port = lwip_ntohs(to->sin_port);
+		txReq->err = udp_sendto_if(sock->pcb, p, &addr, remote_port, netif_local);
+	} else {
+		txReq->err = udp_sendto_if(sock->pcb, p, &sock->pcb->remote_ip, sock->pcb->remote_port, netif_local);
+	}
+	if(txReq->err != ERR_OK)
+		sys_sem_signal(&txReq->txCompleteSem);
+}
+
 /*
  * thread to process TX Requests
  *
@@ -108,42 +168,13 @@ static void _ida_filter_tx_thread(void* p_arg){
 	void* msg =  NULL;
 	IDA_LWIP_TX_REQ *txReq;
 	err_t err;
-	u8_t prio = 0;
-	CPU_SR cpu_sr;
+
 
 	while(1){
 		txReq = (IDA_LWIP_TX_REQ*)ida_lwip_prioQueuePend(outputQueue,0);
 		if(txReq != NULL){
 			if(txReq->type == UDP){
-				struct ida_lwip_sock *sock;
-				sock = get_socket(txReq->socket);
-				if (sock) {
-					struct sockaddr_in *to = (struct sockaddr_in *)txReq->to;
-					ip_addr_t addr;
-					u16_t remote_port;
-					struct pbuf * p;
-					p = pbuf_alloc(PBUF_TRANSPORT, 0, PBUF_REF);
-					if (p != NULL){
-						p->payload = txReq->data;
-						p->len = txReq->size;
-						p->tot_len = p->len;
-						p->ethPrio = ida_lwip_get_socket_prio(sock->id);
-						if (to) {
-							addr.addr = to->sin_addr.s_addr;
-							remote_port = lwip_ntohs(to->sin_port);
-							txReq->err = udp_sendto_if(sock->pcb, p, &addr, remote_port, netif_local);
-						} else {
-							txReq->err = udp_sendto_if(sock->pcb, p, &sock->pcb->remote_ip, sock->pcb->remote_port, netif_local);
-						}
-					} else {
-						txReq->err = ERR_MEM;
-					}
-					sys_sem_signal(&txReq->txCompleteSem);
-				} else {
-					// What should we do here????
-					//return -1;
-				}
-
+				_ida_filter_process_udp(txReq);
 			} else if(txReq->type == RAW){
 				struct pbuf * p;
 				p = pbuf_alloc(PBUF_TRANSPORT, 0, PBUF_REF);

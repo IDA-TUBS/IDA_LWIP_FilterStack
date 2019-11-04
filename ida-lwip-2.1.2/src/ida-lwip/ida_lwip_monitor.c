@@ -11,7 +11,7 @@
 
 LWIP_MEMPOOL_DECLARE(RX_POOL, 20, sizeof(MONITORED_PBUF_T), "Monitored Pbuf_Pool");
 LWIP_MEMPOOL_DECLARE(RX_DATA_POOL, 20, XEMACPS_MAX_FRAME_SIZE, "Rx Data Pool");
-LWIP_MEMPOOL_DECLARE(MONITOR_POOL, 10, sizeof(PBUF_MONITOR_T), "Monitor Pool");
+LWIP_MEMPOOL_DECLARE(MONITOR_POOL, 20, sizeof(PBUF_MONITOR_T), "Monitor Pool");
 
 /*
  * function to free a monitored pbuf

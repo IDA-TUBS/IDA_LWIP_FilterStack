@@ -27,6 +27,12 @@ typedef struct{
 	sys_sem_t act_sem;
 }IDA_LWIP_FILTER_QUEUE;
 
+typedef struct IDA_LWIP_FILTER_PBUF
+{
+   struct pbuf_custom p;
+   sys_sem_t tx_complete_sem;
+} IDA_LWIP_FILTER_PBUF;
+
 typedef struct{
 	enum {UDP, RAW} type;
 	void *data;
