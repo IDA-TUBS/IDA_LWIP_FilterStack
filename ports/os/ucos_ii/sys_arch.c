@@ -73,12 +73,14 @@ struct sys_thread{
 
 struct sys_mbox sys_arch_mbox_space[LWIP_SYS_ARCH_NUMBER_OF_MBOXES];
 struct sys_mbox *sys_arch_mbox_list;
+uint32_t sys_arch_mbox_avail = 0;
 
 OS_STK sys_arch_stack_space[LWIP_SYS_ARCH_TOTAL_STACK_SIZE];
 uint32_t sys_arch_stack_index = 0;
 
 struct sys_sem sys_arch_sem_space[LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES];
 struct sys_sem *sys_arch_sem_list;
+uint32_t sys_arch_sem_avail = 0;
 
 
 /*******************************************************************************************************/
@@ -102,6 +104,7 @@ void sys_init(void)
 		memset(sys_arch_mbox_space[i].mboxBuffer,0,sizeof(uint32_t)*LWIP_SYS_ARCH_MBOX_SIZE);
 	}
 	sys_arch_mbox_space[LWIP_SYS_ARCH_NUMBER_OF_MBOXES - 1].next = NULL;
+	sys_arch_mbox_avail = LWIP_SYS_ARCH_NUMBER_OF_MBOXES;
 
 	memset(sys_arch_stack_space,0,sizeof(sys_arch_stack_space));
 	sys_arch_stack_index = 0;
@@ -111,6 +114,7 @@ void sys_init(void)
 		sys_arch_sem_space[i].next = &sys_arch_sem_space[i+1];
 	}
 	sys_arch_sem_space[LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES - 1].next = NULL;
+	sys_arch_sem_avail = LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES;
 
 #if LWIP_STATS > 0 && SYS_STATS > 0
 	memset(&lwip_stats.sys,0,sizeof(struct stats_sys));
@@ -161,6 +165,7 @@ err_t sys_sem_new(struct sys_sem **sem, u8_t count)
 		return ERR_MEM;
 	}
 	OS_ENTER_CRITICAL();
+	sys_arch_sem_avail--;
 	semaphore = sys_arch_sem_list;
 	sys_arch_sem_list = semaphore->next;
 	semaphore->next = NULL;
@@ -197,6 +202,7 @@ void sys_sem_free(struct sys_sem **sem)
 	OSSemDel(semaphore->ossem, OS_DEL_ALWAYS, &err);
 
 	OS_ENTER_CRITICAL();
+	sys_arch_sem_avail++;
 	struct sys_sem *sys_arch_sem_list_tmp = sys_arch_sem_list;
 	sys_arch_sem_list = semaphore;
 	sys_arch_sem_list->next = sys_arch_sem_list_tmp;
@@ -286,6 +292,7 @@ err_t sys_mbox_new(struct sys_mbox **mbox, int size)
 	}
 
 	OS_ENTER_CRITICAL();
+	sys_arch_mbox_avail--;
 	messageBox = sys_arch_mbox_list;
 	sys_arch_mbox_list = messageBox->next;
 	messageBox->next = NULL;
@@ -323,6 +330,7 @@ void sys_mbox_free(struct sys_mbox ** mbox)
 	OSQDel(messageBox->osmbox, OS_DEL_ALWAYS, &err);
 
 	OS_ENTER_CRITICAL();
+	sys_arch_mbox_avail++;
 	struct sys_mbox *sys_arch_mbox_list_tmp = sys_arch_mbox_list;
 	sys_arch_mbox_list = messageBox;
 	sys_arch_mbox_list->next = sys_arch_mbox_list_tmp;
