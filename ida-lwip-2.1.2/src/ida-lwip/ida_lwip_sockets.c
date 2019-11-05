@@ -22,10 +22,6 @@
 #include "ida-lwip/ida_lwip_monitor.h"
 #include "ida-lwip/ida_lwip_filter.h"
 
-#define SOCK_SUPERV_TASK_STACK_SIZE 1024
-#define SOCK_SUPERV_TASK_PRIO OS_LOWEST_PRIO - 11 //same as dummy task
-static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
-
 #if LWIP_CHECKSUM_ON_COPY
 #include "lwip/inet_chksum.h"
 #endif
@@ -52,10 +48,10 @@ static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
 #define LWIP_NETCONN 0
 #endif
 
-#define API_SELECT_CB_VAR_REF(name)               API_VAR_REF(name)
-#define API_SELECT_CB_VAR_DECLARE(name)           API_VAR_DECLARE(struct lwip_select_cb, name)
-#define API_SELECT_CB_VAR_ALLOC(name, retblock)   API_VAR_ALLOC_EXT(struct lwip_select_cb, MEMP_SELECT_CB, name, retblock)
-#define API_SELECT_CB_VAR_FREE(name)              API_VAR_FREE(MEMP_SELECT_CB, name)
+//#define API_SELECT_CB_VAR_REF(name)               API_VAR_REF(name)
+//#define API_SELECT_CB_VAR_DECLARE(name)           API_VAR_DECLARE(struct lwip_select_cb, name)
+//#define API_SELECT_CB_VAR_ALLOC(name, retblock)   API_VAR_ALLOC_EXT(struct lwip_select_cb, MEMP_SELECT_CB, name, retblock)
+//#define API_SELECT_CB_VAR_FREE(name)              API_VAR_FREE(MEMP_SELECT_CB, name)
 
 #if LWIP_IPV4
 #define IP4ADDR_PORT_TO_SOCKADDR(sin, ipaddr, port) do { \
@@ -69,7 +65,7 @@ static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
     (port) = lwip_ntohs((sin)->sin_port); }while(0)
 #endif /* LWIP_IPV4 */
 
-//#if LWIP_IPV6
+#if LWIP_IPV6
 //#define IP6ADDR_PORT_TO_SOCKADDR(sin6, ipaddr, port) do { \
 //      (sin6)->sin6_len = sizeof(struct sockaddr_in6); \
 //      (sin6)->sin6_family = AF_INET6; \
@@ -83,7 +79,7 @@ static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
 //      ip6_addr_set_zone(ip_2_ip6(ipaddr), (u8_t)((sin6)->sin6_scope_id)); \
 //    } \
 //    (port) = lwip_ntohs((sin6)->sin6_port); }while(0)
-//#endif /* LWIP_IPV6 */
+#endif /* LWIP_IPV6 */
 
 #if LWIP_IPV4 && LWIP_IPV6
 //static void sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_t *port);
@@ -116,60 +112,60 @@ static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
 #else /*-> LWIP_IPV4: LWIP_IPV4 && LWIP_IPV6 */
 #define IS_SOCK_ADDR_LEN_VALID(namelen)  ((namelen) == sizeof(struct sockaddr_in))
 #define IS_SOCK_ADDR_TYPE_VALID(name)    ((name)->sa_family == AF_INET)
-#define SOCK_ADDR_TYPE_MATCH(name, sock) 1
+//#define SOCK_ADDR_TYPE_MATCH(name, sock) 1
 #define IPADDR_PORT_TO_SOCKADDR(sockaddr, ipaddr, port) \
         IP4ADDR_PORT_TO_SOCKADDR((struct sockaddr_in*)(void*)(sockaddr), ip_2_ip4(ipaddr), port)
 #define SOCKADDR_TO_IPADDR_PORT(sockaddr, ipaddr, port) \
         SOCKADDR4_TO_IP4ADDR_PORT((const struct sockaddr_in*)(const void*)(sockaddr), ipaddr, port)
-#define DOMAIN_TO_NETCONN_TYPE(domain, netconn_type) (netconn_type)
-#endif /* LWIP_IPV6 */
+//#define DOMAIN_TO_NETCONN_TYPE(domain, netconn_type) (netconn_type)
+#endif /* LWIP_IPV4 && LWIP_IPV6 */
 
-#define IS_SOCK_ADDR_TYPE_VALID_OR_UNSPEC(name)    (((name)->sa_family == AF_UNSPEC) || \
-                                                    IS_SOCK_ADDR_TYPE_VALID(name))
-#define SOCK_ADDR_TYPE_MATCH_OR_UNSPEC(name, sock) (((name)->sa_family == AF_UNSPEC) || \
-                                                    SOCK_ADDR_TYPE_MATCH(name, sock))
+//#define IS_SOCK_ADDR_TYPE_VALID_OR_UNSPEC(name)    (((name)->sa_family == AF_UNSPEC) || \
+//                                                    IS_SOCK_ADDR_TYPE_VALID(name))
+//#define SOCK_ADDR_TYPE_MATCH_OR_UNSPEC(name, sock) (((name)->sa_family == AF_UNSPEC) || \
+//                                                    SOCK_ADDR_TYPE_MATCH(name, sock))
 #define IS_SOCK_ADDR_ALIGNED(name)      ((((mem_ptr_t)(name)) % 4) == 0)
 
 
-#define LWIP_SOCKOPT_CHECK_OPTLEN(sock, optlen, opttype) do { if ((optlen) < sizeof(opttype)) { done_socket(sock); return EINVAL; }}while(0)
-#define LWIP_SOCKOPT_CHECK_OPTLEN_CONN(sock, optlen, opttype) do { \
-  LWIP_SOCKOPT_CHECK_OPTLEN(sock, optlen, opttype); \
-  if ((sock)->conn == NULL) { done_socket(sock); return EINVAL; } }while(0)
-#define LWIP_SOCKOPT_CHECK_OPTLEN_CONN_PCB(sock, optlen, opttype) do { \
-  LWIP_SOCKOPT_CHECK_OPTLEN(sock, optlen, opttype); \
-  if (((sock)->conn == NULL) || ((sock)->conn->pcb.tcp == NULL)) { done_socket(sock); return EINVAL; } }while(0)
-#define LWIP_SOCKOPT_CHECK_OPTLEN_CONN_PCB_TYPE(sock, optlen, opttype, netconntype) do { \
-  LWIP_SOCKOPT_CHECK_OPTLEN_CONN_PCB(sock, optlen, opttype); \
-  if (NETCONNTYPE_GROUP(netconn_type((sock)->conn)) != netconntype) { done_socket(sock); return ENOPROTOOPT; } }while(0)
+//#define LWIP_SOCKOPT_CHECK_OPTLEN(sock, optlen, opttype) do { if ((optlen) < sizeof(opttype)) { done_socket(sock); return EINVAL; }}while(0)
+//#define LWIP_SOCKOPT_CHECK_OPTLEN_CONN(sock, optlen, opttype) do { \
+//  LWIP_SOCKOPT_CHECK_OPTLEN(sock, optlen, opttype); \
+//  if ((sock)->conn == NULL) { done_socket(sock); return EINVAL; } }while(0)
+//#define LWIP_SOCKOPT_CHECK_OPTLEN_CONN_PCB(sock, optlen, opttype) do { \
+//  LWIP_SOCKOPT_CHECK_OPTLEN(sock, optlen, opttype); \
+//  if (((sock)->conn == NULL) || ((sock)->conn->pcb.tcp == NULL)) { done_socket(sock); return EINVAL; } }while(0)
+//#define LWIP_SOCKOPT_CHECK_OPTLEN_CONN_PCB_TYPE(sock, optlen, opttype, netconntype) do { \
+//  LWIP_SOCKOPT_CHECK_OPTLEN_CONN_PCB(sock, optlen, opttype); \
+//  if (NETCONNTYPE_GROUP(netconn_type((sock)->conn)) != netconntype) { done_socket(sock); return ENOPROTOOPT; } }while(0)
 
 
-#define LWIP_SETGETSOCKOPT_DATA_VAR_REF(name)     API_VAR_REF(name)
-#define LWIP_SETGETSOCKOPT_DATA_VAR_DECLARE(name) API_VAR_DECLARE(struct lwip_setgetsockopt_data, name)
-#define LWIP_SETGETSOCKOPT_DATA_VAR_FREE(name)    API_VAR_FREE(MEMP_SOCKET_SETGETSOCKOPT_DATA, name)
-#if LWIP_MPU_COMPATIBLE
-#define LWIP_SETGETSOCKOPT_DATA_VAR_ALLOC(name, sock) do { \
-  name = (struct lwip_setgetsockopt_data *)memp_malloc(MEMP_SOCKET_SETGETSOCKOPT_DATA); \
-  if (name == NULL) { \
-    sock_set_errno(sock, ENOMEM); \
-    done_socket(sock); \
-    return -1; \
-  } }while(0)
-#else /* LWIP_MPU_COMPATIBLE */
-#define LWIP_SETGETSOCKOPT_DATA_VAR_ALLOC(name, sock)
-#endif /* LWIP_MPU_COMPATIBLE */
+//#define LWIP_SETGETSOCKOPT_DATA_VAR_REF(name)     API_VAR_REF(name)
+//#define LWIP_SETGETSOCKOPT_DATA_VAR_DECLARE(name) API_VAR_DECLARE(struct lwip_setgetsockopt_data, name)
+//#define LWIP_SETGETSOCKOPT_DATA_VAR_FREE(name)    API_VAR_FREE(MEMP_SOCKET_SETGETSOCKOPT_DATA, name)
+//#if LWIP_MPU_COMPATIBLE
+//#define LWIP_SETGETSOCKOPT_DATA_VAR_ALLOC(name, sock) do { \
+//  name = (struct lwip_setgetsockopt_data *)memp_malloc(MEMP_SOCKET_SETGETSOCKOPT_DATA); \
+//  if (name == NULL) { \
+//    sock_set_errno(sock, ENOMEM); \
+//    done_socket(sock); \
+//    return -1; \
+//  } }while(0)
+//#else /* LWIP_MPU_COMPATIBLE */
+//#define LWIP_SETGETSOCKOPT_DATA_VAR_ALLOC(name, sock)
+//#endif /* LWIP_MPU_COMPATIBLE */
 
-#if LWIP_SO_SNDRCVTIMEO_NONSTANDARD
-#define LWIP_SO_SNDRCVTIMEO_OPTTYPE int
-#define LWIP_SO_SNDRCVTIMEO_SET(optval, val) (*(int *)(optval) = (val))
-#define LWIP_SO_SNDRCVTIMEO_GET_MS(optval)   ((long)*(const int*)(optval))
-#else
-#define LWIP_SO_SNDRCVTIMEO_OPTTYPE struct timeval
-#define LWIP_SO_SNDRCVTIMEO_SET(optval, val)  do { \
-  u32_t loc = (val); \
-  ((struct timeval *)(optval))->tv_sec = (long)((loc) / 1000U); \
-  ((struct timeval *)(optval))->tv_usec = (long)(((loc) % 1000U) * 1000U); }while(0)
-#define LWIP_SO_SNDRCVTIMEO_GET_MS(optval) ((((const struct timeval *)(optval))->tv_sec * 1000) + (((const struct timeval *)(optval))->tv_usec / 1000))
-#endif
+//#if LWIP_SO_SNDRCVTIMEO_NONSTANDARD
+//#define LWIP_SO_SNDRCVTIMEO_OPTTYPE int
+//#define LWIP_SO_SNDRCVTIMEO_SET(optval, val) (*(int *)(optval) = (val))
+//#define LWIP_SO_SNDRCVTIMEO_GET_MS(optval)   ((long)*(const int*)(optval))
+//#else
+//#define LWIP_SO_SNDRCVTIMEO_OPTTYPE struct timeval
+//#define LWIP_SO_SNDRCVTIMEO_SET(optval, val)  do { \
+//  u32_t loc = (val); \
+//  ((struct timeval *)(optval))->tv_sec = (long)((loc) / 1000U); \
+//  ((struct timeval *)(optval))->tv_usec = (long)(((loc) % 1000U) * 1000U); }while(0)
+//#define LWIP_SO_SNDRCVTIMEO_GET_MS(optval) ((((const struct timeval *)(optval))->tv_sec * 1000) + (((const struct timeval *)(optval))->tv_usec / 1000))
+//#endif
 
 
 /** A struct sockaddr replacement that has the same alignment as sockaddr_in/
@@ -190,24 +186,24 @@ union sockaddr_aligned {
 #define LWIP_SOCKET_MAX_MEMBERSHIPS NUM_SOCKETS
 #endif
 
-#if LWIP_IGMP
-/* This is to keep track of IP_ADD_MEMBERSHIP calls to drop the membership when
-   a socket is closed */
-struct lwip_socket_multicast_pair {
-  /** the socket */
-  struct lwip_sock *sock;
-  /** the interface address */
-  ip4_addr_t if_addr;
-  /** the group address */
-  ip4_addr_t multi_addr;
-};
-
-static struct lwip_socket_multicast_pair socket_ipv4_multicast_memberships[LWIP_SOCKET_MAX_MEMBERSHIPS];
-
-static int  lwip_socket_register_membership(int s, const ip4_addr_t *if_addr, const ip4_addr_t *multi_addr);
-static void lwip_socket_unregister_membership(int s, const ip4_addr_t *if_addr, const ip4_addr_t *multi_addr);
-static void lwip_socket_drop_registered_memberships(int s);
-#endif /* LWIP_IGMP */
+//#if LWIP_IGMP
+///* This is to keep track of IP_ADD_MEMBERSHIP calls to drop the membership when
+//   a socket is closed */
+//struct lwip_socket_multicast_pair {
+//  /** the socket */
+//  struct lwip_sock *sock;
+//  /** the interface address */
+//  ip4_addr_t if_addr;
+//  /** the group address */
+//  ip4_addr_t multi_addr;
+//};
+//
+//static struct lwip_socket_multicast_pair socket_ipv4_multicast_memberships[LWIP_SOCKET_MAX_MEMBERSHIPS];
+//
+//static int  lwip_socket_register_membership(int s, const ip4_addr_t *if_addr, const ip4_addr_t *multi_addr);
+//static void lwip_socket_unregister_membership(int s, const ip4_addr_t *if_addr, const ip4_addr_t *multi_addr);
+//static void lwip_socket_drop_registered_memberships(int s);
+//#endif /* LWIP_IGMP */
 
 //#if LWIP_IPV6_MLD
 ///* This is to keep track of IP_JOIN_GROUP calls to drop the membership when
@@ -230,43 +226,45 @@ static void lwip_socket_drop_registered_memberships(int s);
 
 
 
-#define sock_set_errno(sk, e) do { \
-  const int sockerr = (e); \
-  set_errno(sockerr); \
-} while (0)
+//#define sock_set_errno(sk, e) do { \
+//  const int sockerr = (e); \
+//  set_errno(sockerr); \
+//} while (0)
 
 /* Forward declaration of some functions */
-#if !LWIP_TCPIP_CORE_LOCKING
-static void lwip_getsockopt_callback(void *arg);
-static void lwip_setsockopt_callback(void *arg);
-#endif
-static int lwip_getsockopt_impl(int s, int level, int optname, void *optval, socklen_t *optlen);
-static int lwip_setsockopt_impl(int s, int level, int optname, const void *optval, socklen_t optlen);
-static int free_socket_locked(struct lwip_sock *sock, int is_tcp, struct netconn **conn,
-                              union lwip_sock_lastdata *lastdata);
-static void free_socket_free_elements(int is_tcp, struct netconn *conn, union lwip_sock_lastdata *lastdata);
+//#if !LWIP_TCPIP_CORE_LOCKING
+//static void lwip_getsockopt_callback(void *arg);
+//static void lwip_setsockopt_callback(void *arg);
+//#endif
+//static int lwip_getsockopt_impl(int s, int level, int optname, void *optval, socklen_t *optlen);
+//static int lwip_setsockopt_impl(int s, int level, int optname, const void *optval, socklen_t optlen);
+//static int free_socket_locked(struct lwip_sock *sock, int is_tcp, struct netconn **conn,
+//                              union lwip_sock_lastdata *lastdata);
+//static void free_socket_free_elements(int is_tcp, struct netconn *conn, union lwip_sock_lastdata *lastdata);
 
-//#if LWIP_IPV4 && LWIP_IPV6
-//static void
-//sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_t *port)
-//{
-//  if ((sockaddr->sa_family) == AF_INET6) {
-//    SOCKADDR6_TO_IP6ADDR_PORT((const struct sockaddr_in6 *)(const void *)(sockaddr), ipaddr, *port);
-//    ipaddr->type = IPADDR_TYPE_V6;
-//  } else {
-//    SOCKADDR4_TO_IP4ADDR_PORT((const struct sockaddr_in *)(const void *)(sockaddr), ipaddr, *port);
-//    ipaddr->type = IPADDR_TYPE_V4;
-//  }
-//}
-//#endif /* LWIP_IPV4 && LWIP_IPV6 */
+#if LWIP_IPV4 && LWIP_IPV6
+static void
+sockaddr_to_ipaddr_port(const struct sockaddr *sockaddr, ip_addr_t *ipaddr, u16_t *port)
+{
+  if ((sockaddr->sa_family) == AF_INET6) {
+    SOCKADDR6_TO_IP6ADDR_PORT((const struct sockaddr_in6 *)(const void *)(sockaddr), ipaddr, *port);
+    ipaddr->type = IPADDR_TYPE_V6;
+  } else {
+    SOCKADDR4_TO_IP4ADDR_PORT((const struct sockaddr_in *)(const void *)(sockaddr), ipaddr, *port);
+    ipaddr->type = IPADDR_TYPE_V4;
+  }
+}
+#endif /* LWIP_IPV4 && LWIP_IPV6 */
 
-#define sock_inc_used(sock)         1
-#define sock_inc_used_locked(sock)  1
+//#define sock_inc_used(sock)         1
+//#define sock_inc_used_locked(sock)  1
 #define IPTYPE IPADDR_TYPE_V4
+
 
 #define SOCK_SUPERV_TASK_STACK_SIZE 1024
 #define SOCK_SUPERV_TASK_PRIO OS_LOWEST_PRIO - 11 //same as dummy task
 static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
+
 
 typedef enum {
 	SOCKET_MGM_CREATE = 0,
@@ -1076,66 +1074,66 @@ ida_lwip_close(int s)
 
 
 
-const char *
-ida_lwip_inet_ntop(int af, const void *src, char *dst, socklen_t size)
-{
-  const char *ret = NULL;
-  int size_int = (int)size;
-  if (size_int < 0) {
-    set_errno(ENOSPC);
-    return NULL;
-  }
-  switch (af) {
-#if LWIP_IPV4
-    case AF_INET:
-      ret = ip4addr_ntoa_r((const ip4_addr_t *)src, dst, size_int);
-      if (ret == NULL) {
-        set_errno(ENOSPC);
-      }
-      break;
-#endif
-#if LWIP_IPV6
-    case AF_INET6:
-      ret = ip6addr_ntoa_r((const ip6_addr_t *)src, dst, size_int);
-      if (ret == NULL) {
-        set_errno(ENOSPC);
-      }
-      break;
-#endif
-    default:
-      set_errno(EAFNOSUPPORT);
-      break;
-  }
-  return ret;
-}
-
-int
-ida_lwip_inet_pton(int af, const char *src, void *dst)
-{
-  int err;
-  switch (af) {
-#if LWIP_IPV4
-    case AF_INET:
-      err = ip4addr_aton(src, (ip4_addr_t *)dst);
-      break;
-#endif
-#if LWIP_IPV6
-    case AF_INET6: {
-      /* convert into temporary variable since ip6_addr_t might be larger
-         than in6_addr when scopes are enabled */
-      ip6_addr_t addr;
-      err = ip6addr_aton(src, &addr);
-      if (err) {
-        memcpy(dst, &addr.addr, sizeof(addr.addr));
-      }
-      break;
-    }
-#endif
-    default:
-      err = -1;
-      set_errno(EAFNOSUPPORT);
-      break;
-  }
-  return err;
-}
+//const char *
+//ida_lwip_inet_ntop(int af, const void *src, char *dst, socklen_t size)
+//{
+//  const char *ret = NULL;
+//  int size_int = (int)size;
+//  if (size_int < 0) {
+//    set_errno(ENOSPC);
+//    return NULL;
+//  }
+//  switch (af) {
+//#if LWIP_IPV4
+//    case AF_INET:
+//      ret = ip4addr_ntoa_r((const ip4_addr_t *)src, dst, size_int);
+//      if (ret == NULL) {
+//        set_errno(ENOSPC);
+//      }
+//      break;
+//#endif
+//#if LWIP_IPV6
+//    case AF_INET6:
+//      ret = ip6addr_ntoa_r((const ip6_addr_t *)src, dst, size_int);
+//      if (ret == NULL) {
+//        set_errno(ENOSPC);
+//      }
+//      break;
+//#endif
+//    default:
+//      set_errno(EAFNOSUPPORT);
+//      break;
+//  }
+//  return ret;
+//}
+//
+//int
+//ida_lwip_inet_pton(int af, const char *src, void *dst)
+//{
+//  int err;
+//  switch (af) {
+//#if LWIP_IPV4
+//    case AF_INET:
+//      err = ip4addr_aton(src, (ip4_addr_t *)dst);
+//      break;
+//#endif
+//#if LWIP_IPV6
+//    case AF_INET6: {
+//      /* convert into temporary variable since ip6_addr_t might be larger
+//         than in6_addr when scopes are enabled */
+//      ip6_addr_t addr;
+//      err = ip6addr_aton(src, &addr);
+//      if (err) {
+//        memcpy(dst, &addr.addr, sizeof(addr.addr));
+//      }
+//      break;
+//    }
+//#endif
+//    default:
+//      err = -1;
+//      set_errno(EAFNOSUPPORT);
+//      break;
+//  }
+//  return err;
+//}
 
