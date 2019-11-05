@@ -308,13 +308,15 @@ static sys_mbox_t socket_mgm_queue;
 #define _IDA_LWIP_IS_SOCKET(fd) (fd < NUM_SOCKETS ? 1 : 0)
 #define _IDA_LWIP_IS_PROXY(fd)  (fd >= NUM_SOCKETS && fd < NUM_SOCKETS + NUM_PROXY_SOCKETS ? 1 : 0)
 
+#define MONITOR_TRIGGER	5
+
 /**
  * INTERNAL_SOCKET_HANDLING
  * Internal socket handling by supervisor task(*((*(socket_mgm_queue)).osmbox)).OSEventType
  */
 
 /*
- * function to initialize array of sockets and proxy sockets and start of supervisor task
+ * Function to initialize list of sockets and proxy sockets and start of supervisor task
  *
  * */
 void ida_lwip_initSockets(void){
@@ -324,12 +326,14 @@ void ida_lwip_initSockets(void){
 	LWIP_MEMPOOL_INIT(SOCKET_MGM_POOL);
 	sys_mbox_new(&socket_mgm_queue,20);
 
+	/* Initialize all normal sockets, make coherent list */
 	for(int i = 0; i < NUM_SOCKETS; i++){
 		sockets[i].id = i;
 		sockets[i].mbox = NULL;
 		sockets[i].rxSem = NULL;
 		sockets[i].proxy = NULL;
 		sockets[i].pendingCounter = 0;
+
 		if(i < NUM_SOCKETS - 1)
 			sockets[i].next = &sockets[i+1];
 		else
@@ -338,6 +342,7 @@ void ida_lwip_initSockets(void){
 		ida_lwip_set_socket_prio(i,0);
 	}
 
+	/* Initialize all proxy sockets, make coherent list for proxy sockets */
 	for(int i = 0; i < NUM_PROXY_SOCKETS; i++){
 		proxySockets[i].id = i + NUM_SOCKETS;
 		proxySockets[i].prioQueue = (IDA_LWIP_PRIO_QUEUE*)NULL;
@@ -346,16 +351,19 @@ void ida_lwip_initSockets(void){
 		else
 			proxySockets[i].next = NULL;
 	}
-	proxySocketFreeList = &proxySockets[0];
+
+	/* Save first element of normal socket list and proxy socket list as first free elements */
 	socketFreeList = &sockets[0];
+	proxySocketFreeList = &proxySockets[0];
 
 	OS_EXIT_CRITICAL();
 
+	/* Start socket supervisor task */
 	sys_thread_new("ida_lwip_sockSupervisor", (void (*)(void*)) ida_lwip_socketSupervisorTask, NULL, 512, OS_LOWEST_PRIO - 11);
 }
 
 /*
- * function to enqueue packet into socket's queue (called by supervisor task)
+ * Function to enqueue packet into socket's queue (called by supervisor task)
  *
  * @param void* arg: ida_lwip_socket s
  * @param pcb: pointer to pcb
@@ -369,6 +377,7 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 
 	u16_t len;
 
+	/* Check whether pcb and ida_lwip_socket are valid */
 	if(pcb == NULL || arg == NULL){
 		pbuf_free(p);
 		return;
@@ -381,24 +390,29 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 		return;
 	}
 
+	/* Check whether socket's message box is valid */
 	if (!sys_mbox_valid(&s->mbox)) {
 		pbuf_free(p);
 		return;
 	}
 
+	/* Check whether received pbuf triggers monitor */
 	if (!ida_monitor_check(p, s->monitor)){
 		pbuf_free(p);
 		return;
 	}
 
+	/* Reset p->copied_len */
 	p->copied_len = 0;
 
+	/* Post received pbuf in message box of socket, return if posting was not possible */
 	OS_ENTER_CRITICAL();
 	if (sys_mbox_trypost(&s->mbox, p) != ERR_OK) {
 		pbuf_free(p);
 		OS_EXIT_CRITICAL();
 		return;
 	}
+
 	if(s->proxy != NULL){
 		/* Receive data for proxy socket */
 		u8_t prio = ida_lwip_get_socket_prio(s->id);
@@ -413,7 +427,7 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 }
 
 /*
- * function create a ida lwip socket
+ * Function create a ida lwip socket
  *
  * @return ida lwip socket
  * */
@@ -424,14 +438,14 @@ static int _ida_lwip_socketCreate(){
 	sys_sem_t txSem;
 	PBUF_MONITOR_T *monitor;
 	CPU_SR cpu_sr;
+	u16_t monitorTrigger = MONITOR_TRIGGER; /* TODO: variable rauswerfen und define direkt benutzen */
 
-	/* TODO: Configure specific priority here */
-	u16_t monitorTrigger = 5;
-
+	/* Create new message box for the socket */
 	if(sys_mbox_new(&mbox, LWIP_SYS_ARCH_MBOX_SIZE) != ERR_OK){
 		return -1;
 	}
 
+	/* Create new semaphores for the socket, free created mbox and sem in case of fail */
 	if(sys_sem_new(&rxSem,0) != ERR_OK){
 		sys_mbox_free(&mbox);
 		return -1;
@@ -443,6 +457,7 @@ static int _ida_lwip_socketCreate(){
 		return -1;
 	}
 
+	/* Create new monitor for the socket, free created data structures in case of fail */
 	monitor = ida_monitor_alloc(monitorTrigger);
 	if(monitor == NULL){
 		sys_mbox_free(&mbox);
@@ -453,6 +468,7 @@ static int _ida_lwip_socketCreate(){
 
 	OS_ENTER_CRITICAL();
 
+	/* Get first free element of socket list */
 	s = socketFreeList;
 
 	/* Check if free socket is available */
@@ -462,11 +478,10 @@ static int _ida_lwip_socketCreate(){
 		sys_sem_free(&rxSem);
 		sys_mbox_free(&mbox);
 		ida_monitor_free(monitor);
-		//todo: here was kai's last edit
 		return -1;
 	}
 
-	/* detach it from the free list */
+	/* Detach it from the free list */
 	socketFreeList = s->next;
 	s->next = NULL;
 	s->mbox = mbox;
@@ -482,7 +497,7 @@ static int _ida_lwip_socketCreate(){
 }
 
 /*
- * function to create ida lwip proxy socket
+ * Function to create ida lwip proxy socket
  *
  * @return ida lwip proxy socket
  * */
@@ -491,6 +506,7 @@ static int _ida_lwip_proxySocketCreate(){
 	IDA_LWIP_PRIO_QUEUE *prioQueue;
 	CPU_SR cpu_sr;
 
+	/* Create the priority queue for proxy socket */
 	prioQueue = ida_lwip_prioQueueCreate(LWIP_SYS_ARCH_MBOX_SIZE);
 
 	if(prioQueue == NULL){
@@ -499,6 +515,7 @@ static int _ida_lwip_proxySocketCreate(){
 
 	OS_ENTER_CRITICAL();
 
+	/* Get first free element of socket list */
 	s = proxySocketFreeList;
 
 	/* Check if free socket is available */
@@ -508,7 +525,7 @@ static int _ida_lwip_proxySocketCreate(){
 		return -1;
 	}
 
-	/* detach it from the free list */
+	/* Detach it from the free list */
 	proxySocketFreeList = s->next;
 	s->next = NULL;
 
@@ -520,7 +537,7 @@ static int _ida_lwip_proxySocketCreate(){
 }
 
 /*
- * function to bind socket to sockaddr
+ * Function to bind socket to sockaddr
  *
  * @param s: id of socket
  * @param name: socket address
@@ -533,6 +550,7 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 	u16_t local_port;
 	struct udp_pcb *pcb, *pcb_i;
 
+	/* Set local ipaddr */
 	ip_addr_set_ipaddr(&local_addr, (ip_addr_t*)&name_in->sin_addr);
 
 	sock = get_socket(s);
@@ -540,24 +558,29 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 		return -1;
 	}
 	//todo check whether addr valid necessary?
-	/* check size, family and alignment of 'name' */
+	/* Check size, family and alignment of 'name' */
 	if(!(IS_SOCK_ADDR_LEN_VALID(namelen) && IS_SOCK_ADDR_TYPE_VALID(name) && IS_SOCK_ADDR_ALIGNED(name))){
 		return -1;
 	}
 
+	/* Set local port */
 	SOCKADDR_TO_IPADDR_PORT(name, &local_addr, local_port);
 
+	/* Create DDP PCB */
 	pcb = udp_new_ip_type(IPTYPE);
 
 	if(pcb == NULL){
 		return -1;
 	}
 
+	/* Set function to be called, when packets are received via this PCB*/
 	pcb->recv = (udp_recv_fn)_ida_lwip_socketRecv;
 	pcb->recv_arg = sock;
 
+	/* Link PCB to socket */
 	sock->pcb = pcb;
 
+	/* Bind the UDP PCB */
 	if(udp_bind(pcb, &local_addr, local_port) != ERR_OK){
 		return -1;
 	}
