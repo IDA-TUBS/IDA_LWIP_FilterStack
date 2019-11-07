@@ -621,7 +621,7 @@ static int _ida_lwip_socketBind(int s, const struct sockaddr *name, socklen_t na
 }
 
 /*
- * function to register proxy socket
+ * Function to register proxy socket
  *
  * @param poxyFd: proxy socket id
  * @param socketFd: socket id
@@ -631,6 +631,7 @@ int _ida_lwip_registerProxySocket(int proxyFd, int socketFd){
 	struct ida_lwip_sock *socket;
 	u16_t pendingPackets = 0;
 
+	/* Check if socket id's are valid */
 	if(!_IDA_LWIP_IS_PROXY(proxyFd) || !_IDA_LWIP_IS_SOCKET(socketFd))
 		return -1;
 
@@ -638,22 +639,29 @@ int _ida_lwip_registerProxySocket(int proxyFd, int socketFd){
 
 	OS_ENTER_CRITICAL();
 
+	/* Get sockets to given socket id's */
 	proxy = get_proxySocket(proxyFd);
 	socket = get_socket(socketFd);
 
+	/* Exit with error if socket's proxy is already in use */
 	if(socket -> proxy != NULL){
 		OS_EXIT_CRITICAL();
 		return -1;
 	}
 
+
 	socket->proxy = proxy;
 	pendingPackets = socket->pendingCounter;
 
+	/* If there were packets received on the socket already,
+	 * queue a message into proxy priority queue with socket's priority
+	 * todo: zu ungenau? */
 	if(pendingPackets > 0){
 		u8_t prio = ida_lwip_get_socket_prio(socketFd);
 		ida_lwip_prioQueuePut(proxy->prioQueue,(void*)socketFd,prio);
 	}
 
+	/* todo: comment */
 	sys_sem_free(&socket->rxSem);
 	socket->rxSem = NULL;
 
@@ -661,7 +669,7 @@ int _ida_lwip_registerProxySocket(int proxyFd, int socketFd){
 }
 
 /*
- * function to free a socket
+ * Function to close a socket
  *
  * @param socket: id of socket to free
  *
@@ -701,7 +709,7 @@ static int _ida_lwip_free_socket(int socket)
 		sock->next = proxySocketFreeList;
 		proxySocketFreeList = sock;
 
-		/* Not implemented yet */
+		/* Not implemented yet todo:*/
 		return -1;
 	} else {
 		return -1;
@@ -709,11 +717,11 @@ static int _ida_lwip_free_socket(int socket)
 }
 
 /*
- * task to supervise managment function usage
+ * Task to supervise requests for usage of managment functions todo: is request the right wording?
  *
  * @param p_arg unused
  * */
-void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
+void ida_lwip_socketSupervisorTask(void *p_arg){
 	(void)p_arg;
 	IDA_LWIP_SOCKET_MGM *msg;
 
@@ -722,22 +730,27 @@ void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
 		if(msg != NULL){
 			switch(msg->type){
 			case SOCKET_MGM_CREATE:
+				/* Request to create socket -> call socketCreate-function*/
 				msg->returnValue = _ida_lwip_socketCreate();
 				break;
 
 			case SOCKET_MGM_CREATE_PROXY:
+				/* Request to create proxy socket -> call proxySocketCreate-function*/
 				msg->returnValue = _ida_lwip_proxySocketCreate();
 				break;
 
 			case SOCKET_MGM_BIND:
+				/* Request to bind socket -> call socketBind-function */
 				msg->returnValue = _ida_lwip_socketBind(msg->socket, msg->data, msg->dataLen);
 				break;
 
 			case SOCKET_MGM_CLOSE:
+				/* Request to close socket -> call free_socket-function */
 				msg->returnValue = _ida_lwip_free_socket(msg->socket);
 				break;
 
 			case SOCKET_MGM_REGISTER_PROXY:
+				/* Request to register a proxy socket -> call registerProxySocket-function */
 				msg->returnValue = _ida_lwip_registerProxySocket(msg->socket, (int)msg->data);
 				break;
 
@@ -746,13 +759,14 @@ void ida_lwip_socketSupervisorTask(void *p_arg){ // used to be static
 
 				break;
 			}
+			/* Signal process that request was processed */
 			sys_sem_signal(&(msg->ackSem));
 		}
 	}
 }
 
 /*
- * function to allocate socket management message
+ * Function to allocate socket management message
  *
  * @param mgm: pointer to message
  * */
@@ -762,6 +776,7 @@ static int _ida_lwip_socketMgmAlloc(IDA_LWIP_SOCKET_MGM **mgm){
 	if(message == (IDA_LWIP_SOCKET_MGM*)NULL)
 		return -1;
 
+	/* Create messages's semaphore */
 	sys_sem_new(&message->ackSem,0);
 	if(message->ackSem == NULL){
 		LWIP_MEMPOOL_FREE(SOCKET_MGM_POOL,message);
@@ -770,20 +785,32 @@ static int _ida_lwip_socketMgmAlloc(IDA_LWIP_SOCKET_MGM **mgm){
 
 	message->returnValue = -1;
 
+	/* Set message */
 	*mgm = message;
 }
 
 /*
- * function to free socket management message
+ * Function to free socket management message
  *
  * @param mgm: pointer to message
  * */
 static int _ida_lwip_socketMgmFree(IDA_LWIP_SOCKET_MGM *mgm){
 	int result = mgm->returnValue;
+
+	/* Free messages's semaphore */
 	sys_sem_free(&mgm->ackSem);
+	/* Free mesage */
 	LWIP_MEMPOOL_FREE(SOCKET_MGM_POOL,mgm);
-	return result;
+	return result; // = return mgm->returnValue; <-- todo: is that correct?
 }
+
+/*
+ * Function to request to register proxy
+ * --> sends message with request to register proxy to the supervisor task
+ *
+ * @param proxy: proxy socket id
+ * @param socket: socket id
+ */
 
 static int _ida_lwip_registerProxy(int proxy, int socket){
 	IDA_LWIP_SOCKET_MGM *msg = NULL;
@@ -791,18 +818,22 @@ static int _ida_lwip_registerProxy(int proxy, int socket){
 	if(_ida_lwip_socketMgmAlloc(&msg) < 0)
 		return -1;
 
+	/* Set message to request to register proxy*/
 	msg->type = SOCKET_MGM_REGISTER_PROXY;
 	msg->socket = proxy;
 	msg->data = (void*)socket;
 
+	/* Send message to the supervisor task's message queue and
+	 * wait for supervisor task to confirm successful processing */
 	sys_mbox_post(&socket_mgm_queue,msg);
 	sys_arch_sem_wait(&msg->ackSem,0);
 
+	/* return the return value stored in message */
 	return _ida_lwip_socketMgmFree(msg);
 }
 
 /*
- * function to get ida lwip socket to given id
+ * Function to get ida lwip socket to given id
  *
  * @param fd: socket id
  * @return ida lwip socket
@@ -812,7 +843,6 @@ struct ida_lwip_sock *get_socket(int fd){
 		return NULL;
 
 	struct ida_lwip_sock *sock = &sockets[fd];
-
 	if (sock->mbox != NULL && sock->monitor != NULL){
 		return sock;
 	}
@@ -820,7 +850,7 @@ struct ida_lwip_sock *get_socket(int fd){
 }
 
 /*
- * function to get ida lwip proxy socket to given id
+ * Function to get ida lwip proxy socket to given id
  *
  * @param fd: proxy socket id
  * @return ida lwip proxy socket
@@ -889,10 +919,10 @@ void ida_lwip_set_socket_prio(int fd, u8_t prio){
  ****************************************************************************/
 
 /*
- * function to enqueue management msg to create socket
+ * Function to enqueue management msg to request to create socket
  *
  * @param domain: unused
- * @param type of: socket
+ * @param type: type of socket
  * @param protocol: unused
  * */
 int ida_lwip_socket(int domain, int type, int protocol)
@@ -903,12 +933,15 @@ int ida_lwip_socket(int domain, int type, int protocol)
 	LWIP_UNUSED_ARG(domain);
 	LWIP_UNUSED_ARG(protocol);
 
+	/* Check type of socket */
 	if(type != SOCK_DGRAM && type != SOCK_PROXY)
 	  return -1;
 
+	/* Create message */
 	if(_ida_lwip_socketMgmAlloc(&msg) < 0)
 		return -1;
 
+	/* Set message to request to create socket */
 	if(type == SOCK_DGRAM)
 		msg->type = SOCKET_MGM_CREATE;
 	else if(type == SOCK_PROXY)
@@ -918,14 +951,17 @@ int ida_lwip_socket(int domain, int type, int protocol)
 		return -1;
 	}
 
+	/* Send message to the supervisor task's message queue and
+	 * wait for supervisor task to confirm successful processing */
 	sys_mbox_post(&socket_mgm_queue,msg);
 	sys_arch_sem_wait(&msg->ackSem,0);
 
+	/* return the return value stored in message */
 	return _ida_lwip_socketMgmFree(msg);
 }
 
 /*
- * function to enqueue management msg to bind socket to address
+ * Function to enqueue management msg to request to bind socket to address
  *
  * @param s: id of socket
  * @param name: socket address
@@ -935,22 +971,27 @@ int ida_lwip_bind(int s, const struct sockaddr *name, socklen_t namelen)
 {
 	IDA_LWIP_SOCKET_MGM *msg = NULL;
 
+	/* Create message */
 	if(_ida_lwip_socketMgmAlloc(&msg) < 0)
 		return -1;
 
+	/* Set message to request bind socket */
 	msg->type = SOCKET_MGM_BIND;
 	msg->socket = s;
 	msg->data = (void*)name;
 	msg->dataLen = (u32_t)namelen;
 
+	/* Send message to the supervisor task's message queue and
+	 * wait for supervisor task to confirm successful processing */
 	sys_mbox_post(&socket_mgm_queue,msg);
 	sys_arch_sem_wait(&msg->ackSem,0);
 
+	/* return the return value stored in message */
 	return _ida_lwip_socketMgmFree(msg);
 }
 
 /*
- * function to receive packet from socket queue
+ * Function to receive packet from socket queue todo: finish comments/ correct comments
  *
  * @param sock: id of socket
  * @param mem: pointer to memory for packet
@@ -963,6 +1004,7 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 {
 	CPU_SR cpu_sr;
 	if(_IDA_LWIP_IS_SOCKET(sock)){
+		/* Socket is normal socket */
 		struct ida_lwip_sock *s;
 		struct pbuf* p;
 		ssize_t copyLen;
@@ -971,33 +1013,40 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 		if (s == NULL)
 			return -1;
 
+		/* Wait for arriving data */
 		if(s->proxy == NULL)
 			sys_arch_sem_wait(&s->rxSem, 0);
 
 		if(s->p_cur == NULL){
-
+			/* Not looked into packet yet */
 			OS_ENTER_CRITICAL();
+			/* Fetch data from socket's message queue */
 			sys_arch_mbox_tryfetch(&s->mbox, (void*)&p);
 			s->pendingCounter--;
+			/* Set p_cur */
 			s->p_cur = p;
 			OS_EXIT_CRITICAL();
 
 			if(p == NULL)
 				return -1;
 		} else {
+			/* already looked into packet
+			 * --> set p_cur */
 			p = s->p_cur;
 		}
 
+		/* Calculate how much has to be copied */
 		if(p->tot_len >= len)
 			copyLen = len;
 		else
 			copyLen = p->tot_len;
 
-
+		/* Copy received data */
 		memcpy(mem, (void*)((uint32_t)p->payload+p->copied_len), copyLen);
 
 		p->copied_len += copyLen;
 
+		/* Free pbuf if all data was copied */
 		if(p->copied_len == p->tot_len){
 			pbuf_free(p);
 			s->p_cur = NULL;
@@ -1005,6 +1054,7 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 
 		return copyLen;
 	} else if(_IDA_LWIP_IS_PROXY(sock)){
+		/* Socket is proxy socket */
 		struct ida_lwip_proxy_sock* proxy;
 		int ready_fd = -1;
 		if(len != sizeof(int))
@@ -1014,6 +1064,7 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 		if(proxy == NULL)
 			return -1;
 
+		/* Get data from proxy prio queue */
 		*(int*)mem = (int)ida_lwip_prioQueuePend(proxy->prioQueue,0);
 
 		return len;
@@ -1023,7 +1074,8 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 }
 
 /*
- * function to enqueue packet in tx queue
+ * Function to enqueue packet into tx queue
+ * --> queue will be processed by filter_tx_thread
  *
  * @param s: id of socket
  * @param data: pointer to data
@@ -1037,11 +1089,12 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
             const struct sockaddr *to, socklen_t tolen)
 {
 	if(_IDA_LWIP_IS_SOCKET(s)){
+		/* Socket is normal socket */
 		struct ida_lwip_sock *sock;
 		if (size > IDA_LWIP_MAX_MSS) {
 		  return -1;
 		}
-
+		/* Fill message with data and info */
 		IDA_LWIP_TX_REQ txReq;
 		txReq.type = UDP;
 		txReq.data = data;
@@ -1058,16 +1111,17 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
 		txReq.txCompleteSem = sock->txSem;
 
 		u8_t prio = ida_lwip_get_socket_prio(sock->id);
-
+		/* Enqueue message into tx queue */
 		ida_filter_enqueue_pkt((void*)&txReq, prio, 0);
-
+		/* Wait for confirmation that packet was handed over to driver */
 		sys_arch_sem_wait(&txReq.txCompleteSem, 0);
 
 		return txReq.err == ERR_OK ? size : -1;
 	} else if(_IDA_LWIP_IS_PROXY(s)){
+		/* Socket is proxy socket */
 		if(size != sizeof(int))
 			return -1;
-		return _ida_lwip_registerProxy(s,*(int*)data);
+		return _ida_lwip_registerProxy(s,*(int*)data); // todo: schöner?
 	} else {
 	  return -1;
 	}
@@ -1075,7 +1129,7 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
 
 
 /*
- * function to close socket
+ * Function to request to close socket
  *
  * @param s: id of socket
  * */
@@ -1087,12 +1141,16 @@ ida_lwip_close(int s)
 	if(_ida_lwip_socketMgmAlloc(&msg) < 0)
 		return -1;
 
+	/* Set message to request closing the socket*/
 	msg->type = SOCKET_MGM_CLOSE;
 	msg->socket = s;
 
+	/* Send message to the supervisor task's message queue and
+	 * wait for supervisor task to confirm successful processing */
 	sys_mbox_post(&socket_mgm_queue,msg);
 	sys_arch_sem_wait(&msg->ackSem,0);
 
+	/* return the return value stored in message */
 	return _ida_lwip_socketMgmFree(msg);
 }
 

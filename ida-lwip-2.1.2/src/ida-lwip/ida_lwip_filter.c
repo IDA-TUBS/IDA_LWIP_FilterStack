@@ -187,7 +187,7 @@ static void _ida_filter_tx_thread(void* p_arg){
 				}
 				sys_sem_signal(&txReq->txCompleteSem);
 			} else {
-
+				//todo: ??
 			}
 		}
 	}
