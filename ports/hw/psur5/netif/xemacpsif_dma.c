@@ -495,6 +495,10 @@ void setup_rx_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *rxring)
 	}
 }
 
+void testCase(void){
+
+}
+
 void emacps_recv_handler(void *arg)
 {
 	struct pbuf *p;
@@ -540,6 +544,11 @@ void emacps_recv_handler(void *arg)
 
 			bdindex = XEMACPS_BD_TO_INDEX(rxring, curbdptr);
 			p = (struct pbuf *)rx_pbufs_storage[index + bdindex];
+
+			uint8_t* x = p->payload;
+			if(x[11] == 0x02){
+				testCase();
+			}
 
 			/*
 			 * Adjust the buffer size to the actual number of bytes received.
