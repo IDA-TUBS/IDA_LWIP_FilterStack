@@ -57,9 +57,9 @@ void ida_filter_init(struct netif *netif){
 	inputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
 	outputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
 
-	sys_thread_new("ida_lwip_rx_filter",(void (*)(void*)) _ida_filter_thread, NULL, 512,	TCPIP_THREAD_PRIO - 1);
-	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, 512,	TCPIP_THREAD_PRIO - 2);
-	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_tx_thread, NULL, 512,	OS_LOWEST_PRIO - 10);
+	sys_thread_new("ida_lwip_rx_filter",(void (*)(void*)) _ida_filter_thread, NULL, IDA_LWIP_RX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 1);
+	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_TX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 2);
+	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_CLASSIC_ADAPTER_STACK_SIZE,	OS_LOWEST_PRIO - 10);
 }
 
 /*
@@ -218,7 +218,8 @@ ssize_t ida_lwip_send_raw(void *data, size_t size, sys_sem_t *completeSem)
   txReq.err = ERR_OK;
   txReq.txCompleteSem = *completeSem;
 
-  ida_filter_enqueue_pkt((void*)&txReq, 0, 0);
+  if(ida_filter_enqueue_pkt((void*)&txReq, 0, 0) != ERR_OK)
+	  sys_sem_signal(&txReq.txCompleteSem);
 
   sys_arch_sem_wait(&txReq.txCompleteSem, 0);
 

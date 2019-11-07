@@ -22,9 +22,11 @@
 #include "ida-lwip/ida_lwip_monitor.h"
 #include "ida-lwip/ida_lwip_filter.h"
 
-#define SOCK_SUPERV_TASK_STACK_SIZE 1024
+#ifndef IDA_LWIP_SOCK_SUPERV_TASK_STACK_SIZE
+#define IDA_LWIP_SOCK_SUPERV_TASK_STACK_SIZE 256
+#endif
 #define SOCK_SUPERV_TASK_PRIO OS_LOWEST_PRIO - 11 //same as dummy task
-static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
+static CPU_STK sockSupervTaskStk[IDA_LWIP_SOCK_SUPERV_TASK_STACK_SIZE];
 
 #if LWIP_CHECKSUM_ON_COPY
 #include "lwip/inet_chksum.h"
@@ -264,10 +266,6 @@ static void free_socket_free_elements(int is_tcp, struct netconn *conn, union lw
 #define sock_inc_used_locked(sock)  1
 #define IPTYPE IPADDR_TYPE_V4
 
-#define SOCK_SUPERV_TASK_STACK_SIZE 1024
-#define SOCK_SUPERV_TASK_PRIO OS_LOWEST_PRIO - 11 //same as dummy task
-static CPU_STK sockSupervTaskStk[SOCK_SUPERV_TASK_STACK_SIZE];
-
 typedef enum {
 	SOCKET_MGM_CREATE = 0,
 	SOCKET_MGM_CREATE_PROXY,
@@ -353,7 +351,7 @@ void ida_lwip_initSockets(void){
 
 	OS_EXIT_CRITICAL();
 
-	sys_thread_new("ida_lwip_sockSupervisor", (void (*)(void*)) ida_lwip_socketSupervisorTask, NULL, 512, OS_LOWEST_PRIO - 11);
+	sys_thread_new("ida_lwip_sockSupervisor", (void (*)(void*)) ida_lwip_socketSupervisorTask, NULL, IDA_LWIP_SOCK_SUPERV_TASK_STACK_SIZE, OS_LOWEST_PRIO - 11);
 }
 
 /*
@@ -971,7 +969,8 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 		else
 			copyLen = p->tot_len;
 
-		memcpy(mem, p->payload, copyLen);
+
+		memcpy(mem, (void*)((uint32_t)p->payload+p->copied_len), copyLen);
 
 		p->copied_len += copyLen;
 
