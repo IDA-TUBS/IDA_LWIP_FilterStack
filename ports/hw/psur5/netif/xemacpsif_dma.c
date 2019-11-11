@@ -228,6 +228,10 @@ u32_t get_base_index_rxpbufsstorage (xemacpsif_s *xemacpsif)
 	return index;
 }
 
+void testTrap(void){
+
+}
+
 void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 {
 	XEmacPs_Bd *txbdset;
@@ -239,6 +243,7 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 	struct pbuf *p;
 	u32 *temp;
 	u32_t index;
+	int goToTrap = 0;
 
 	index = get_base_index_txpbufsstorage (xemacpsif);
 
@@ -247,6 +252,8 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 		n_bds = XEmacPs_BdRingFromHwTx(txring,
 								XLWIP_CONFIG_N_TX_DESC, &txbdset);
 		if (n_bds == 0)  {
+			if(goToTrap)
+				testTrap();
 			return;
 		}
 		/* free the processed BD's */
@@ -264,6 +271,8 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 			}
 			dsb();
 			p = (struct pbuf *)tx_pbufs_storage[index + bdindex];
+			if(p->tot_len == 1072 || p->tot_len == 1076)
+				goToTrap = 1;
 			if (p != NULL) {
 				pbuf_free(p);
 			}
@@ -278,6 +287,8 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 			LWIP_DEBUGF(NETIF_DEBUG, ("Failure while freeing in Tx Done ISR\r\n"));
 		}
 	}
+	if(goToTrap)
+		testTrap();
 	return;
 }
 
@@ -495,10 +506,6 @@ void setup_rx_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *rxring)
 	}
 }
 
-void testCase(void){
-
-}
-
 void emacps_recv_handler(void *arg)
 {
 	struct pbuf *p;
@@ -545,10 +552,6 @@ void emacps_recv_handler(void *arg)
 			bdindex = XEMACPS_BD_TO_INDEX(rxring, curbdptr);
 			p = (struct pbuf *)rx_pbufs_storage[index + bdindex];
 
-			uint8_t* x = p->payload;
-			if(x[11] == 0x02){
-				testCase();
-			}
 
 			/*
 			 * Adjust the buffer size to the actual number of bytes received.
@@ -558,6 +561,8 @@ void emacps_recv_handler(void *arg)
 #else
 			rx_bytes = XEmacPs_BdGetLength(curbdptr);
 #endif
+			if(rx_bytes == 1072)
+				testTrap();
 			pbuf_realloc(p, rx_bytes);
 
 			/* store it in the receive queue,
