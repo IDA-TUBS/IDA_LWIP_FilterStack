@@ -19,7 +19,7 @@
 #include "lwip/netif.h"
 #include "lwip/mld6.h"
 
-#include "ida-lwip/ida_lwip_monitor.h"
+#include "ida-lwip/ida_lwip_queue.h"
 #include "ida-lwip/ida_lwip_filter.h"
 
 
@@ -330,7 +330,7 @@ void ida_lwip_initSockets(void){
 	/* Initialize all normal sockets, make coherent list */
 	for(int i = 0; i < NUM_SOCKETS; i++){
 		sockets[i].id = i;
-		sockets[i].mbox = NULL;
+		sockets[i].queue = NULL;
 		sockets[i].rxSem = NULL;
 		sockets[i].proxy = NULL;
 		sockets[i].pendingCounter = 0;
@@ -392,13 +392,7 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 	}
 
 	/* Check whether socket's message box is valid */
-	if (!sys_mbox_valid(&s->mbox)) {
-		pbuf_free(p);
-		return;
-	}
-
-	/* Check whether received pbuf triggers monitor */
-	if (!ida_monitor_check(p, s->monitor)){
+	if (s->queue == (IDA_LWIP_QUEUE*)0) {
 		pbuf_free(p);
 		return;
 	}
@@ -408,7 +402,7 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 
 	/* Post received pbuf in message box of socket, return if posting was not possible */
 	OS_ENTER_CRITICAL();
-	if (sys_mbox_trypost(&s->mbox, p) != ERR_OK) {
+	if(ida_lwip_queue_put(s->queue,p) == -1){
 		pbuf_free(p);
 		OS_EXIT_CRITICAL();
 		return;
@@ -434,36 +428,27 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
  * */
 static int _ida_lwip_socketCreate(){
 	struct ida_lwip_sock *s;
-	sys_mbox_t mbox;
 	sys_sem_t rxSem;
 	sys_sem_t txSem;
-	PBUF_MONITOR_T *monitor;
+	IDA_LWIP_QUEUE *queue;
 	CPU_SR cpu_sr;
 	u16_t monitorTrigger = MONITOR_TRIGGER; /* TODO: variable rauswerfen und define direkt benutzen */
 
 	/* Create new message box for the socket */
-	if(sys_mbox_new(&mbox, LWIP_SYS_ARCH_MBOX_SIZE) != ERR_OK){
+	queue = ida_lwip_queue_alloc(IDA_LWIP_QUEUE_SIZE);
+	if(queue == (IDA_LWIP_QUEUE*)0){
 		return -1;
 	}
 
 	/* Create new semaphores for the socket, free created mbox and sem in case of fail */
 	if(sys_sem_new(&rxSem,0) != ERR_OK){
-		sys_mbox_free(&mbox);
+		ida_lwip_queue_free(queue);
 		return -1;
 	}
 
 	if(sys_sem_new(&txSem,0) != ERR_OK){
-		sys_mbox_free(&mbox);
+		ida_lwip_queue_free(queue);
 		sys_sem_free(&rxSem);
-		return -1;
-	}
-
-	/* Create new monitor for the socket, free created data structures in case of fail */
-	monitor = ida_monitor_alloc(monitorTrigger);
-	if(monitor == NULL){
-		sys_mbox_free(&mbox);
-		sys_sem_free(&rxSem);
-		sys_sem_free(&txSem);
 		return -1;
 	}
 
@@ -477,18 +462,16 @@ static int _ida_lwip_socketCreate(){
 		OS_EXIT_CRITICAL();
 		sys_sem_free(&txSem);
 		sys_sem_free(&rxSem);
-		sys_mbox_free(&mbox);
-		ida_monitor_free(monitor);
+		ida_lwip_queue_free(queue);
 		return -1;
 	}
 
 	/* Detach it from the free list */
 	socketFreeList = s->next;
 	s->next = NULL;
-	s->mbox = mbox;
+	s->queue = queue;
 	s->rxSem = rxSem;
 	s->txSem = txSem;
-	s->monitor = monitor;
 	s->proxy = NULL;
 	s->pendingCounter = 0;
 
@@ -685,12 +668,10 @@ static int _ida_lwip_free_socket(int socket)
 			return -1;
 		/* Protect socket array */
 		sys_sem_free(&sock->rxSem);
-		sys_mbox_free(&sock->mbox);
-		ida_monitor_free(sock->monitor);
+		ida_lwip_queue_free(sock->queue);
 
 		sock->rxSem = NULL;
-		sock->mbox = NULL;
-		sock->monitor = NULL;
+		sock->queue = NULL;
 
 		/* put socket back into free list*/
 		sock->next = socketFreeList;
@@ -843,7 +824,7 @@ struct ida_lwip_sock *get_socket(int fd){
 		return NULL;
 
 	struct ida_lwip_sock *sock = &sockets[fd];
-	if (sock->mbox != NULL && sock->monitor != NULL){
+	if (sock->queue != NULL){
 		return sock;
 	}
 	return NULL;
@@ -1021,7 +1002,7 @@ ssize_t ida_lwip_recvfrom(int sock, void *mem, size_t len, int flags, struct soc
 			/* Not looked into packet yet */
 			OS_ENTER_CRITICAL();
 			/* Fetch data from socket's message queue */
-			sys_arch_mbox_tryfetch(&s->mbox, (void*)&p);
+			p = ida_lwip_queue_get(s->queue);
 			s->pendingCounter--;
 			/* Set p_cur */
 			s->p_cur = p;

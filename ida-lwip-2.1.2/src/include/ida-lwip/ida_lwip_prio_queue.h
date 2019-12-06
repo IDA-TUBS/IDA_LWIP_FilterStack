@@ -9,13 +9,13 @@
 #define SRC_MODULES_LWIP_IDA_LWIP_2_1_2_SRC_INCLUDE_IDA_LWIP_IDA_LWIP_PRIO_QUEUE_H_
 
 #include "lwip/sys.h"
+#include "ida_lwip_queue.h"
 
 
 #define IDA_LWIP_MBOX_SIZE 10
 
 typedef struct{
-	sys_mbox_t mbox[8];
-	u16_t count[8];
+	IDA_LWIP_QUEUE *queue[8];
 	u8_t prio_field;
 	sys_sem_t act_sem;
 }IDA_LWIP_PRIO_QUEUE;

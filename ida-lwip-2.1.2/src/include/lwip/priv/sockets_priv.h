@@ -46,7 +46,7 @@
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
-#include "ida-lwip/ida_lwip_monitor.h"
+#include "ida-lwip/ida_lwip_queue.h"
 #include "ida-lwip/ida_lwip_prio_queue.h"
 
 #ifdef __cplusplus
@@ -71,11 +71,10 @@ union lwip_sock_lastdata {
 struct ida_lwip_sock{
 	sys_sem_t rxSem;
 	sys_sem_t txSem;
-	sys_mbox_t mbox;
+	IDA_LWIP_QUEUE *queue;
 	u16_t	id;
 	u16_t 	pendingCounter;
 	struct ida_lwip_sock *next;
-	PBUF_MONITOR_T *monitor;
 	struct udp_pcb *pcb;
 	struct ida_lwip_proxy_sock *proxy;
 	struct pbuf* p_cur;

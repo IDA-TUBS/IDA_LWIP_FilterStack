@@ -11,7 +11,7 @@
 #include "lwip/init.h"
 
 #include "ida-lwip/ida_lwip_filter.h"
-#include "ida-lwip/ida_lwip_monitor.h"
+#include "ida-lwip/ida_lwip_queue.h"
 #include "ida-lwip/ida_lwip_prio_queue.h"
 #include "lwip/sockets.h"
 
@@ -33,7 +33,8 @@ void ida_lwip_init(struct netif *netif){
 
 	lwip_init();
 
-	ida_monitor_init();
+	//ida_monitor_init();
+	ida_lwip_queue_init();
 	ida_lwip_prioQueueInit();
 
 	ida_filter_init(netif);

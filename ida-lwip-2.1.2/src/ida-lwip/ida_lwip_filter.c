@@ -13,20 +13,20 @@
 #include "lwip/priv/sockets_priv.h"
 #include "lwip/udp.h"
 #include "ida-lwip/ida_lwip_filter.h"
-#include "ida-lwip/ida_lwip_monitor.h"
+#include "ida-lwip/ida_lwip_queue.h"
 #include "ida-lwip/ida_lwip_prio_queue.h"
 
+//IDA_LWIP_FILTER_MBOX dummy_task_mbox;
 
-IDA_LWIP_FILTER_QUEUE ida_filter_queue;
-
-IDA_LWIP_FILTER_MBOX dummy_task_mbox;
-
-PBUF_MONITOR_T *classic_mon;
+//PBUF_MONITOR_T *classic_mon;
 
 struct netif *netif_local;				// local save of netif, is needed to call ip4_input
 
-IDA_LWIP_PRIO_QUEUE *inputQueue;
-IDA_LWIP_PRIO_QUEUE *outputQueue;
+static IDA_LWIP_PRIO_QUEUE *_ida_lwip_inputQueue;
+static IDA_LWIP_PRIO_QUEUE *_ida_lwip_outputQueue;
+
+static IDA_LWIP_QUEUE *_ida_lwip_classicQueue;
+static sys_sem_t	_ida_lwip_classicSem;
 
 static void _ida_filter_thread(void* p_arg);
 static void _ida_filter_tx_thread(void* p_arg);
@@ -44,22 +44,21 @@ void ida_filter_init(struct netif *netif){
 	netif_local = netif;
 
 	/*Initialization of mbox for dummy task*/
-	sys_mbox_new(&dummy_task_mbox.mbox, IDA_FILTER_MBOX_SIZE);
-	dummy_task_mbox.count = 0;
-
-	classic_mon = ida_monitor_alloc(2);
+	_ida_lwip_classicQueue = ida_lwip_queue_alloc(IDA_LWIP_QUEUE_SIZE);
+	ida_lwip_queue_set_trigger(_ida_lwip_classicQueue, 4);
+	sys_sem_new(&_ida_lwip_classicSem, 0);
 
 	/* Initialize tx pbufs */
 	LWIP_MEMPOOL_INIT(TX_PBUF_POOL);
 
 	/*Initialization of ida_filter_queue*/
 
-	inputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
-	outputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
+	_ida_lwip_inputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
+	_ida_lwip_outputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
 
 	sys_thread_new("ida_lwip_rx_filter",(void (*)(void*)) _ida_filter_thread, NULL, IDA_LWIP_RX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 1);
 	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_TX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 2);
-	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_CLASSIC_ADAPTER_STACK_SIZE,	OS_LOWEST_PRIO - 10);
+//	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_CLASSIC_ADAPTER_STACK_SIZE,	OS_LOWEST_PRIO - 10);
 }
 
 /*
@@ -71,9 +70,9 @@ void ida_filter_init(struct netif *netif){
  * */
 err_t ida_filter_enqueue_pkt(void *data, u8_t prio, u8_t direction){
 	if(direction)
-		return ida_lwip_prioQueuePut(inputQueue,data,prio);
+		return ida_lwip_prioQueuePut(_ida_lwip_inputQueue,data,prio);
 	else
-		return ida_lwip_prioQueuePut(outputQueue,data,prio);
+		return ida_lwip_prioQueuePut(_ida_lwip_outputQueue,data,prio);
 }
 
 /*
@@ -89,15 +88,11 @@ static void _ida_filter_thread(void* p_arg){
 	CPU_SR cpu_sr;
 
 	while(1){
-		p = (struct pbuf*)ida_lwip_prioQueuePend(inputQueue,0);
+		p = (struct pbuf*)ida_lwip_prioQueuePend(_ida_lwip_inputQueue,0);
 		err = ip4_input(p, netif_local);
 		if(err == ERR_NOTUS){
-			if(ida_monitor_check(p,classic_mon) > 0){
-				//Todo: Send to classic stack
-				sys_mbox_trypost(&dummy_task_mbox.mbox, (void*)p);
-				OS_ENTER_CRITICAL();
-				dummy_task_mbox.count++;
-				OS_EXIT_CRITICAL();
+			if(ida_lwip_queue_put(_ida_lwip_classicQueue,(void*)p) != -1){
+				sys_sem_signal(&_ida_lwip_classicSem);
 			} else {
 				pbuf_free(p);
 			}
@@ -171,7 +166,7 @@ static void _ida_filter_tx_thread(void* p_arg){
 
 
 	while(1){
-		txReq = (IDA_LWIP_TX_REQ*)ida_lwip_prioQueuePend(outputQueue,0);
+		txReq = (IDA_LWIP_TX_REQ*)ida_lwip_prioQueuePend(_ida_lwip_outputQueue,0);
 		if(txReq != NULL){
 			if(txReq->type == UDP){
 				_ida_filter_process_udp(txReq);
