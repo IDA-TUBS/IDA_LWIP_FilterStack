@@ -34,7 +34,7 @@ void ida_lwip_prioQueueDestroy(IDA_LWIP_PRIO_QUEUE* prioQueue){
 			ida_lwip_queue_free(prioQueue->queue[i]);
 	}
 
-	if(&prioQueue->act_sem != NULL)
+	if(prioQueue->act_sem != NULL)
 		sys_sem_free(&prioQueue->act_sem);
 
 	LWIP_MEMPOOL_FREE(PRIO_QUEUE_POOL, prioQueue);
@@ -61,6 +61,7 @@ IDA_LWIP_PRIO_QUEUE* ida_lwip_prioQueueCreate(int size){
 			ida_lwip_prioQueueDestroy(prioQueue);
 			return NULL;
 		}
+		prioQueue->queue[i] = queue;
 	}
 	prioQueue->prio_field = 0;
 	if(sys_sem_new(&prioQueue->act_sem,0) != ERR_OK){

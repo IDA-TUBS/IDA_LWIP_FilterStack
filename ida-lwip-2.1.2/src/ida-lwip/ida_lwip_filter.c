@@ -16,10 +16,6 @@
 #include "ida-lwip/ida_lwip_queue.h"
 #include "ida-lwip/ida_lwip_prio_queue.h"
 
-//IDA_LWIP_FILTER_MBOX dummy_task_mbox;
-
-//PBUF_MONITOR_T *classic_mon;
-
 struct netif *netif_local;				// local save of netif, is needed to call ip4_input
 
 static IDA_LWIP_PRIO_QUEUE *_ida_lwip_inputQueue;

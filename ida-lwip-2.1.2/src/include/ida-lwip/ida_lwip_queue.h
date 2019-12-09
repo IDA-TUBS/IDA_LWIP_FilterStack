@@ -17,7 +17,7 @@
  * Number of message queues available
  */
 #ifndef IDA_LWIP_QUEUE_COUNT
-#define IDA_LWIP_QUEUE_COUNT	32
+#define IDA_LWIP_QUEUE_COUNT	64
 #endif
 
 typedef struct {

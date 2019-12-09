@@ -491,7 +491,7 @@ static int _ida_lwip_proxySocketCreate(){
 	CPU_SR cpu_sr;
 
 	/* Create the priority queue for proxy socket */
-	prioQueue = ida_lwip_prioQueueCreate(LWIP_SYS_ARCH_MBOX_SIZE);
+	prioQueue = ida_lwip_prioQueueCreate(IDA_LWIP_QUEUE_SIZE);
 
 	if(prioQueue == NULL){
 		return -1;
