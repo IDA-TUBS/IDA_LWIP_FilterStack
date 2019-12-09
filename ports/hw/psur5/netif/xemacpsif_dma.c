@@ -84,10 +84,6 @@ static UINTPTR rx_pbufs_storage[4*XLWIP_CONFIG_N_RX_DESC];
 #endif
 #endif
 
-#ifdef IDA_LWIP
-#include "ida-lwip/ida_lwip_monitor.h"
-#endif
-
 static s32_t emac_intr_num;
 
 /******************************************************************************
@@ -427,11 +423,7 @@ void setup_rx_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *rxring)
 #ifdef ZYNQMP_USE_JUMBO
 		p = pbuf_alloc(PBUF_RAW, MAX_FRAME_SIZE_JUMBO, PBUF_POOL);
 #else
-#ifdef IDA_LWIP
-		p = ida_monitored_pbuf_alloc(XEMACPS_MAX_FRAME_SIZE);
-#else
 		p = pbuf_alloc(PBUF_RAW, XEMACPS_MAX_FRAME_SIZE, PBUF_POOL);
-#endif
 #endif
 		if (!p) {
 #if LINK_STATS
@@ -765,11 +757,7 @@ XStatus init_dma(struct xemac_s *xemac)
 #ifdef ZYNQMP_USE_JUMBO
 		p = pbuf_alloc(PBUF_RAW, MAX_FRAME_SIZE_JUMBO, PBUF_POOL);
 #else
-#ifdef IDA_LWIP
-		p = ida_monitored_pbuf_alloc(XEMACPS_MAX_FRAME_SIZE);
-#else
 		p = pbuf_alloc(PBUF_RAW, XEMACPS_MAX_FRAME_SIZE, PBUF_POOL);
-#endif
 #endif
 		if (!p) {
 #if LINK_STATS
