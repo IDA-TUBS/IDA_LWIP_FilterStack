@@ -13,9 +13,6 @@
 #include "lwip/etharp.h"
 #include "lwip/ip.h"
 
-#define IDA_FILTER_MBOX_SIZE 8
-#define MBOX_SEM_TIMEOUT 0 //wait forever
-
 #ifndef IDA_LWIP_TX_FILTER_STACK_SIZE
 #define IDA_LWIP_TX_FILTER_STACK_SIZE 	256
 #endif
