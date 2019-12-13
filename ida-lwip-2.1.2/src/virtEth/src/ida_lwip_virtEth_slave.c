@@ -12,7 +12,6 @@
 #include "lwip/stats.h"
 
 #include "netif/etharp.h"
-#include "ida_lwip_virtEth.h"
 #include "ida_lwip_virtEth_slave.h"
 #include "xipipsu.h"
 

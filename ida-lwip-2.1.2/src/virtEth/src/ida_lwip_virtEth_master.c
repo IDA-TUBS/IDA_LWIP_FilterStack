@@ -48,7 +48,6 @@
 
 #include "netif/etharp.h"
 #include "ida_lwip_virtEth_master.h"
-#include "ida_lwip_virtEth.h"
 #include "ida-lwip/ida_lwip_filter.h"
 #include "xipipsu.h"
 
