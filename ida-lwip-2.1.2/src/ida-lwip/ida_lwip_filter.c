@@ -15,6 +15,7 @@
 #include "ida-lwip/ida_lwip_filter.h"
 #include "ida-lwip/ida_lwip_queue.h"
 #include "ida-lwip/ida_lwip_prio_queue.h"
+#include "ida_lwip_virtEth_master.h"
 
 struct netif *netif_local;				// local save of netif, is needed to call ip4_input
 
@@ -54,7 +55,7 @@ void ida_filter_init(struct netif *netif){
 
 	sys_thread_new("ida_lwip_rx_filter",(void (*)(void*)) _ida_filter_thread, NULL, IDA_LWIP_RX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 1);
 	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_TX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 2);
-//	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_CLASSIC_ADAPTER_STACK_SIZE,	OS_LOWEST_PRIO - 10);
+	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_classicAdapter, NULL, IDA_LWIP_CLASSIC_ADAPTER_STACK_SIZE,	OS_LOWEST_PRIO - 10);
 }
 
 /*
@@ -228,6 +229,21 @@ static void _ida_filter_classicAdapter(void* p_arg){
 		return;
 	}
 
-	ida_lwip_send_raw(NULL, 0, &txCompleteSem);
+	ida_lwip_virtEth_master_init();
 
+	while(1){
+		u32_t res = sys_arch_sem_wait(&_ida_lwip_classicSem,1);
+		if(res == SYS_ARCH_TIMEOUT){
+			/** Check if we need to send something from the classic stack */
+			ida_lwip_virtEth_receiveFromClassic(txCompleteSem);
+
+		} else {
+			/** We received something that we need to pass to the the classic stack **/
+			struct pbuf *p = (struct pbuf*)ida_lwip_queue_get(_ida_lwip_classicQueue);
+			if(p != NULL){
+				ida_lwip_virtEth_sendToClassic(p);
+				pbuf_free(p);
+			}
+		}
+	}
 }
