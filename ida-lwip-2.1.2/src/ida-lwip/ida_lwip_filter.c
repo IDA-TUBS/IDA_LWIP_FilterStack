@@ -118,12 +118,16 @@ static void _ida_filter_thread(void* p_arg){
 		p = (struct pbuf*)ida_lwip_prioQueuePend(_ida_lwip_inputQueue,0);
 		err = ip4_input(p, netif_local);
 		if(err == ERR_NOTUS){
-			if(ida_lwip_queue_put(_ida_lwip_classicQueue,(void*)p) != -1){
-				sys_sem_signal(&_ida_lwip_classicSem);
-			} else {
-				pbuf_free(p);
-			}
+			ida_filter_sendToClassic(p);
 		}
+	}
+}
+
+void ida_filter_sendToClassic(struct pbuf *p){
+	if(ida_lwip_queue_put(_ida_lwip_classicQueue,(void*) p) != -1){
+		sys_sem_signal(&_ida_lwip_classicSem);
+	} else {
+		pbuf_free(p);
 	}
 }
 

@@ -72,6 +72,7 @@ typedef struct{
 	sys_sem_t txCompleteSem;
 }IDA_LWIP_TX_REQ;
 
+void ida_filter_sendToClassic(struct pbuf *p);
 err_t ida_filter_enqueue_pkt(void *data, u8_t prio, u8_t direction);
 ssize_t ida_lwip_send_raw(void *data, size_t size, sys_sem_t *completeSem);
 void ida_filter_init(struct netif *netif);

@@ -215,6 +215,7 @@ ethernet_input(struct pbuf *p, struct netif *netif)
 //  custom_buf->owned_by_classic = true;
 //  increase_obc_cnt();
 //  dummy_to_classic_stack(p);
+    ida_filter_sendToClassic(p);
 	  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n"));
 	  pbuf_free(p);
 	  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: DROPPED\n"));
