@@ -45,18 +45,11 @@
 
 #include "ida_lwip_virtEth.h"
 
-#define	RX_BUFFER_ENTRY_SIZE	1502
-#define RX_BUFFER_ENTRY_COUNT	20
-#define RX_BUFFER_BASE			0xFFFE000
-
-#if RX_BUFFER_ENTRY_COUNT > IDA_LWIP_MEM_QUEUE_SIZE
-#error "the queue must be able to store all entries at once"
-#endif
-
 typedef struct RX_PBUF
 {
    struct pbuf_custom p;
    void *data;
+   u32_t id;
 } RX_PBUF_T;
 
 

@@ -15,6 +15,8 @@
 #include "ida_lwip_virtEth_slave.h"
 #include "xipipsu.h"
 
+#include "ucos_int.h"
+
 /* Define those to better describe your network interface. */
 #define IFNAME0 'v'
 #define IFNAME1 'e'
@@ -22,15 +24,15 @@
 struct netif *NetIf;
 XIpiPsu IPIInstance;
 
-SHARED_MEMORY_MGMT  *sharedMem;
+SHARED_MEMORY_MGMT  *_ida_lwip_sharedMem;
 
 sys_sem_t rxSemaphore;
 
-LWIP_MEMPOOL_DECLARE(RX_POOL, RX_BUFFER_ENTRY_COUNT, sizeof(RX_PBUF_T), "RX Pbuf_Pool");
 
-u8_t *rxBuffer;
-//IPI_BUFFER_DESCR rxBufferDescriptors[RX_BUFFER_COUNT];
-//IPI_BUFFER_DESCR *rxBufferDescrFree;
+static RX_PBUF_T rxPbufStorage[IDA_LWIP_MEM_QUEUE_SIZE];
+
+static u8_t *_ida_lwip_mem_from_classic;
+static u8_t *_ida_lwip_mem_to_classic;
 
 /*
  * low_level_output():
@@ -43,28 +45,30 @@ u8_t *rxBuffer;
 
 static err_t low_level_output(struct netif *netif, struct pbuf *p)
 {
+	IDA_LWIP_IPI_QUEUE_ENTRY entry;
 	SYS_ARCH_DECL_PROTECT(lev);
-    err_t err;
-    s32_t freecnt;
 
 	SYS_ARCH_PROTECT(lev);
 
-	/* check if space is available to send */
-//    freecnt = is_tx_space_available(xemacpsif);
+	if(ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->freeTxBuffers,&entry) == 0){
+		SYS_ARCH_UNPROTECT(lev);
+		pbuf_free(p);
+#if LINK_STATS
+		lwip_stats.link.drop++;
+#endif
+		return ERR_MEM;
+	}
+#if LINK_STATS
+		lwip_stats.link.xmit++;
+#endif
+	void* data = (void*)(IDA_LWIP_MEM_FROM_CLASSIC_BASE + entry.ref * IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE);
+	pbuf_copy_partial(p,data,p->tot_len,0);
+	entry.size = p->tot_len;
+	ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->txBuffers,&entry);
 
-
-//    if (is_tx_space_available(xemacpsif)) {
-//		//_unbuffered_low_level_output(xemacpsif, p);
-//		err = ERR_OK;
-//	} else {
-//#if LINK_STATS
-//		lwip_stats.link.drop++;
-//#endif
-//		err = ERR_MEM;
-//	}
 
 	SYS_ARCH_UNPROTECT(lev);
-	return err;
+	return ERR_OK;
 }
 
 static void _ida_rx_pbuf_free(struct pbuf *p)
@@ -75,8 +79,8 @@ static void _ida_rx_pbuf_free(struct pbuf *p)
 	OS_ENTER_CRITICAL();
 	IDA_LWIP_IPI_QUEUE_ENTRY entry;
 	entry.size = 0;
-	entry.ref = (void*)rx_pbuf;
-	ida_lwip_virtEth_queuePut(&sharedMem->freeRxBuffers,&entry);
+	entry.ref = rx_pbuf->id;
+	ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeRxBuffers,&entry);
 	OS_EXIT_CRITICAL();
 }
 
@@ -93,17 +97,17 @@ static struct pbuf * low_level_input(struct netif *netif)
 	IDA_LWIP_IPI_QUEUE_ENTRY entry;
 	RX_PBUF_T* rx_pbuf;
 
-	u8_t res = ida_lwip_virtEth_queueGet(&sharedMem->rxBuffers, &entry);
+	u8_t res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->rxBuffers, &entry);
 	if(res == 0){
 		return NULL;
 	}
-	rx_pbuf = (RX_PBUF_T*)entry.ref;
+	rx_pbuf = &rxPbufStorage[entry.ref];
 
 	p = pbuf_alloced_custom(PBUF_RAW,
 			entry.size,
 			PBUF_REF,
 			&rx_pbuf->p,
-			entry.data,
+			rx_pbuf->data,
 			1502);
 
 	return p;
@@ -182,6 +186,8 @@ void ida_lwip_virtEth_irq_handler(void *p_args){
 	XIpiPsu_ClearInterruptStatus(&IPIInstance,IpiSrcMask);
 }
 
+extern XIpiPsu_Config XIpiPsu_ConfigTable[XPAR_XIPIPSU_NUM_INSTANCES];
+
 static err_t low_level_init(struct netif *netif)
 {
 	NetIf = netif;	/* do we need this? */
@@ -190,41 +196,35 @@ static err_t low_level_init(struct netif *netif)
 	IDA_LWIP_IPI_QUEUE_ENTRY entry;
 
 	XIpiPsu_Config *ipiConfig;
-	sharedMem = (SHARED_MEMORY_MGMT*)IDA_LWIP_MEM_FROM_CLASSIC_BASE;
-	rxBuffer = (u8_t*)RX_BUFFER_BASE;
+	_ida_lwip_sharedMem = (SHARED_MEMORY_MGMT*)IDA_LWIP_MEM_MGMT_BASE;
+	_ida_lwip_mem_from_classic = (u8_t*)IDA_LWIP_MEM_FROM_CLASSIC_BASE;
+	_ida_lwip_mem_to_classic   = (u8_t*)IDA_LWIP_MEM_TO_CLASSIC_BASE;
 
-	LWIP_MEMPOOL_INIT(RX_POOL);
+	//LWIP_MEMPOOL_INIT(RX_POOL);
 
 	/* set up tx buffer */
-	memset((void*)rxBuffer,0,RX_BUFFER_ENTRY_COUNT*RX_BUFFER_ENTRY_SIZE);
+//	memset((void*)_ida_lwip_mem_to_classic,0,IDA_LWIP_MEM_TO_CLASSIC_SIZE);
 
-	for(int i = 0; i < RX_BUFFER_ENTRY_COUNT; i++){
-		rx_pbuf  = (RX_PBUF_T*)LWIP_MEMPOOL_ALLOC(RX_POOL);
-		if(rx_pbuf == NULL)
-			return ERR_MEM;
+	for(int i = 0; i < IDA_LWIP_MEM_QUEUE_SIZE; i++){
+		void *data = (void*)(IDA_LWIP_MEM_TO_CLASSIC_BASE + i * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE);
+		rx_pbuf = &rxPbufStorage[i];
 		rx_pbuf->p.custom_free_function = _ida_rx_pbuf_free;
-		rx_pbuf->data = (void*)&rxBuffer[i*RX_BUFFER_ENTRY_SIZE];
-		entry.data = rx_pbuf->data;
-		entry.size = RX_BUFFER_ENTRY_SIZE;
-		entry.ref = (void*)rx_pbuf;
+		rx_pbuf->data = data;
+		rx_pbuf->id = i;
+		entry.size = IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE;
+		entry.ref = (u32_t)i;
 		/* put in txFree Queue */
-		if(ida_lwip_virtEth_queuePut(&sharedMem->freeRxBuffers,&entry) == 0){
+		if(ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeRxBuffers,&entry) == 0){
 			/* if it is successfull, go on with next descriptor */
 			return ERR_MEM;
 		}
 	}
 
-	ipiConfig = XIpiPsu_LookupConfig(0);
-	XIpiPsu_CfgInitialize(&IPIInstance, ipiConfig, (UINTPTR) ipiConfig->BaseAddress);
-
-	UCOS_IntVectSet(65,
-				0,
-				(1 << XPAR_CPU_ID),
-				ida_lwip_virtEth_irq_handler,
-				DEF_NULL);
-
-
-	UCOS_IntSrcEn(XPAR_PSU_IPI_1_INT_ID);
+	XIpiPsu_CfgInitialize(&IPIInstance, &XIpiPsu_ConfigTable[0], XIpiPsu_ConfigTable[0].BaseAddress);
+	XIpiPsu_InterruptEnable(&IPIInstance, XIPIPSU_ALL_MASK);
+	XIpiPsu_ClearInterruptStatus(&IPIInstance, XIPIPSU_ALL_MASK);
+	UCOS_IntVectSet(XIpiPsu_ConfigTable[0].IntId, 0, 0, ida_lwip_virtEth_irq_handler, DEF_NULL);
+	UCOS_IntSrcEn(XIpiPsu_ConfigTable[0].IntId);
 
 	/* maximum transfer unit */
 #ifdef ZYNQMP_USE_JUMBO

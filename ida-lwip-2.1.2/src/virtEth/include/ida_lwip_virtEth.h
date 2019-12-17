@@ -42,21 +42,26 @@
 #include "netif/etharp.h"
 #include "lwip/sys.h"
 
-#define IDA_LWIP_MEM_FROM_CLASSIC_BASE	0xFFFC000
-#define IDA_LWIP_MEM_FROM_CLASSIC_SIZE	0x1000
-#define IDA_LWIP_MEM_TO_CLASSIC_BASE	0xFFFD000
-#define IDA_LWIP_MEM_TO_CLASSIC_SIZE	0x1000
+#define IDA_LWIP_MEM_MGMT_BASE			0xFFFC0000
 #define IDA_LWIP_MEM_QUEUE_SIZE			32
+
+#define IDA_LWIP_MEM_FROM_CLASSIC_BASE			0xFFFD0000
+#define	IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE 	1502
+#define IDA_LWIP_MEM_FROM_CLASSIC_SIZE			(IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE*IDA_LWIP_MEM_QUEUE_SIZE)
+
+#define IDA_LWIP_MEM_TO_CLASSIC_BASE			0xFFFE0000
+#define	IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE 		1502
+#define IDA_LWIP_MEM_TO_CLASSIC_SIZE			(IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE*IDA_LWIP_MEM_QUEUE_SIZE)
+
 
 #define CEIL_ALIGN(x) 	x%sizeof(u32_t)==0 ? (x) : ((x/sizeof(u32_t))+sizeof(u32_t))
 
-typedef struct{
-	size_t 	size;
-	void 	*data;
-	void	*ref;
+typedef struct __attribute__((packed, aligned(8))){
+	u32_t 	size;
+	u32_t 	ref;
 } IDA_LWIP_IPI_QUEUE_ENTRY;
 
-typedef struct{
+typedef struct __attribute__((packed, aligned(8))){
 	u32_t lock;
 	u8_t	head;
 	u8_t	tail;
@@ -65,23 +70,12 @@ typedef struct{
 	IDA_LWIP_IPI_QUEUE_ENTRY	data[IDA_LWIP_MEM_QUEUE_SIZE];
 } IDA_LWIP_IPI_QUEUE;
 
-typedef struct{
+typedef struct __attribute__((packed)){
 	IDA_LWIP_IPI_QUEUE		freeRxBuffers;
 	IDA_LWIP_IPI_QUEUE		freeTxBuffers;	/* free buffers that can be filled by classic stack */
 	IDA_LWIP_IPI_QUEUE		rxBuffers;		/* RX Packets to classic stack */
 	IDA_LWIP_IPI_QUEUE		txBuffers;		/* TX Packets from classic stack */
-	u32_t head;					/* Next to write (RW,R-) */
-	u32_t tail;					/* Next to read	 (R-,RW) */
-	u32_t free_tail;			/* Next to free  (RW,--) */
-	u32_t ringBufferSize;		/* Size in bytes (const) */
-	u32_t ringBufferFree;		/* Free bytes 	 (RW,--) */
-	u32_t *ringBufferBase;
 } SHARED_MEMORY_MGMT;
-
-typedef struct{
-	void *next;
-	void *data;
-} IPI_BUFFER_DESCR;
 
 void spin_lock(u32_t *l);
 void spin_unlock(u32_t *l);

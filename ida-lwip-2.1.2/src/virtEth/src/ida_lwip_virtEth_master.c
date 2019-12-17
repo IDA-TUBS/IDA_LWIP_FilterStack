@@ -53,75 +53,54 @@
 
 XIpiPsu IPIInstance;
 
-SHARED_MEMORY_MGMT  *sharedMem;
+static SHARED_MEMORY_MGMT  *_ida_lwip_sharedMem;
 
-u8_t *txBuffer;
-IPI_BUFFER_DESCR txBufferDescriptors[TX_BUFFER_ENTRY_COUNT];
-IPI_BUFFER_DESCR *txBufferDescrFree;
+static u8_t *_ida_lwip_mem_from_classic;
+static u8_t *_ida_lwip_mem_to_classic;
 
-void _ida_lwip_virtEth_master_fillTxQueue(void){
-	IDA_LWIP_IPI_QUEUE_ENTRY entry;
-	/* As long as we have unused buffers */
-	while(txBufferDescrFree){
-		/* create entry for queue */
-		entry.data = txBufferDescrFree->data;
-		entry.size = TX_BUFFER_ENTRY_SIZE;
-		entry.ref = (void*)txBufferDescrFree;
-		/* put in txFree Queue */
-		if(ida_lwip_virtEth_queuePut(&sharedMem->freeTxBuffers,&entry) == 1){
-			/* if it is successfull, go on with next descriptor */
-			txBufferDescrFree = txBufferDescrFree->next;
-		} else {
-			/* if queue is full: return */
-			return;
-		}
-	}
-}
+extern XIpiPsu_Config XIpiPsu_ConfigTable[];
 
 void ida_lwip_virtEth_master_init(void){
-	XIpiPsu_Config *ipiConfig;
-	sharedMem = (SHARED_MEMORY_MGMT*)IDA_LWIP_MEM_FROM_CLASSIC_BASE;
-	memset((void*)sharedMem,0,sizeof(SHARED_MEMORY_MGMT));
-	txBuffer = (u8_t*)TX_BUFFER_BASE;
+	IDA_LWIP_IPI_QUEUE_ENTRY entry;
+
+	_ida_lwip_sharedMem = (SHARED_MEMORY_MGMT*)IDA_LWIP_MEM_MGMT_BASE;
+	memset((void*)_ida_lwip_sharedMem,0,sizeof(SHARED_MEMORY_MGMT));
+	_ida_lwip_mem_from_classic = (u8_t*)IDA_LWIP_MEM_FROM_CLASSIC_BASE;
+	_ida_lwip_mem_to_classic   = (u8_t*)IDA_LWIP_MEM_TO_CLASSIC_BASE;
 
 	/* set up tx buffer */
-	memset((void*)txBuffer,0,TX_BUFFER_ENTRY_COUNT*TX_BUFFER_ENTRY_SIZE);
-	for(int i = 0; i < TX_BUFFER_ENTRY_COUNT; i++){
-		txBufferDescriptors[i].data = (void*)&txBuffer[i*TX_BUFFER_ENTRY_SIZE];
-		if(i < TX_BUFFER_ENTRY_COUNT - 1)
-			txBufferDescriptors[i].next = &txBufferDescriptors[i+1];
-		else
-			txBufferDescriptors[i].next = NULL;
+	memset((void*)_ida_lwip_mem_from_classic,0,IDA_LWIP_MEM_FROM_CLASSIC_SIZE);
+	for(int i = 0; i < IDA_LWIP_MEM_QUEUE_SIZE; i++){
+		/* create entry for queue */
+		entry.ref = (u32_t)i;
+		entry.size = IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE;
+		/* put in txFree Queue */
+		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeTxBuffers,&entry);
 	}
-	txBufferDescrFree = txBufferDescriptors;
-	_ida_lwip_virtEth_master_fillTxQueue();
 
-	ipiConfig = XIpiPsu_LookupConfig(0);
-	XIpiPsu_CfgInitialize(&IPIInstance, ipiConfig, (UINTPTR) ipiConfig->BaseAddress);
+	XIpiPsu_CfgInitialize(&IPIInstance, &XIpiPsu_ConfigTable[0], (UINTPTR) XIpiPsu_ConfigTable[0].BaseAddress);
 }
 
 void ida_lwip_virtEth_receiveFromClassic(sys_sem_t txCompleteSem){
 	IDA_LWIP_IPI_QUEUE_ENTRY entry;
-	IPI_BUFFER_DESCR *old;
-	u8_t res = ida_lwip_virtEth_queueGet(&sharedMem->txBuffers, &entry);
+	u8_t res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->txBuffers, &entry);
 	if(res == 1){
-		ida_lwip_send_raw(entry.data, entry.size, &txCompleteSem);
-		old = txBufferDescrFree;
-		txBufferDescrFree = (IPI_BUFFER_DESCR*)entry.ref;
-		txBufferDescrFree->next = old;
-		_ida_lwip_virtEth_master_fillTxQueue();
+		void *data = (void*)(IDA_LWIP_MEM_FROM_CLASSIC_BASE + (entry.ref * IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE));
+		ida_lwip_send_raw(data, entry.size, &txCompleteSem);
+		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeTxBuffers,&entry);
 	}
 }
 
 void ida_lwip_virtEth_sendToClassic(struct pbuf* p){
 	IDA_LWIP_IPI_QUEUE_ENTRY entry;
-	u8_t res = ida_lwip_virtEth_queueGet(&sharedMem->freeRxBuffers, &entry);
+	u8_t res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->freeRxBuffers, &entry);
 	if(res == 1){
-		pbuf_copy_partial(p,(void*)entry.data,p->tot_len,0);
+		void *data = (void*)(IDA_LWIP_MEM_TO_CLASSIC_BASE + (entry.ref * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE));
+		pbuf_copy_partial(p,data,p->tot_len,0);
 		entry.size = p->tot_len;
-		ida_lwip_virtEth_queuePut(&sharedMem->rxBuffers, &entry);
+		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->rxBuffers, &entry);
 	}
-	//Trigger IPI
+	XIpiPsu_TriggerIpi(&IPIInstance, XIpiPsu_ConfigTable[0].TargetList[0].Mask);
 }
 
 
