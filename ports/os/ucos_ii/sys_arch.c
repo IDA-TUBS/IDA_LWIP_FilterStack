@@ -71,6 +71,8 @@ struct sys_thread{
 	uint8_t prio;
 };
 
+#define LWIP_SYS_ARCH_NUMBER_OF_THREADS 10
+
 struct sys_mbox sys_arch_mbox_space[LWIP_SYS_ARCH_NUMBER_OF_MBOXES];
 struct sys_mbox *sys_arch_mbox_list;
 uint32_t sys_arch_mbox_avail = 0;
@@ -82,7 +84,8 @@ struct sys_sem sys_arch_sem_space[LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES];
 struct sys_sem *sys_arch_sem_list;
 uint32_t sys_arch_sem_avail = 0;
 
-
+struct sys_thread sys_arch_thread_space[LWIP_SYS_ARCH_NUMBER_OF_THREADS];
+uint32_t sys_arch_thread_index = 0;
 /*******************************************************************************************************/
 /* System																											    */
 /*******************************************************************************************************/
@@ -108,6 +111,9 @@ void sys_init(void)
 
 	memset(sys_arch_stack_space,0,sizeof(sys_arch_stack_space));
 	sys_arch_stack_index = 0;
+
+	memset(sys_arch_thread_space,0,sizeof(sys_arch_thread_space));
+	sys_arch_thread_index = 0;
 
 	sys_arch_sem_list = sys_arch_sem_space;
 	for(i = 0; i < LWIP_SYS_ARCH_NUMBER_OF_SEMAPHORES-1; i++){
@@ -436,7 +442,7 @@ struct sys_thread *sys_thread_new(const char *name, void(* thread)(void *arg), v
 {
 	OS_STK *taskStack;
 	uint8_t err;
-	struct sys_thread *sysThread;
+	struct sys_thread *sysThread = &sys_arch_thread_space[sys_arch_thread_index];
 
 	if (prio == 0 || prio >= OS_TASK_IDLE_PRIO){
 		LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_thread_new failed: Invalid Prio 0x%08x\n", prio));
@@ -464,6 +470,7 @@ struct sys_thread *sys_thread_new(const char *name, void(* thread)(void *arg), v
     sysThread->prio = prio;
 	if (err == OS_ERR_NONE) {
 		LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_thread_new: Created Task %s Prio:0x%08x\n", name,prio));
+		sys_arch_thread_index++;
 		return sysThread;
 	} else {
 		LWIP_DEBUGF(SYS_DEBUG, ("SYS_ARCH: sys_thread_new failed: Task name set failed with error 0x%08x\n", err));
