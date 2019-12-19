@@ -390,6 +390,9 @@ err_t ida_lwip_virtEth_init(struct netif *netif)
 	netif->name[1] = IFNAME1;
 	netif->output = etharp_output;
 	netif->linkoutput = low_level_output;
+
+	sys_sem_new(&rxSemaphore, 0);
+
 #if LWIP_IPV6
 	netif->output_ip6 = ethip6_output;
 #endif
