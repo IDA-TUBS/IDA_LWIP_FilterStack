@@ -10,6 +10,7 @@
 #include "lwip/pbuf.h"
 #include "lwip/sys.h"
 #include "lwip/stats.h"
+#include "lwip/tcpip.h"
 
 #include "netif/etharp.h"
 #include "ida_lwip_virtEth_slave.h"
@@ -390,6 +391,8 @@ err_t ida_lwip_virtEth_init(struct netif *netif)
 	netif->name[1] = IFNAME1;
 	netif->output = etharp_output;
 	netif->linkoutput = low_level_output;
+	netif->input = tcpip_input;
+//	netif->input = etharp_input;
 
 	sys_sem_new(&rxSemaphore, 0);
 
