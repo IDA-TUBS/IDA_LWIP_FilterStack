@@ -124,6 +124,11 @@ static void _ida_filter_thread(void* p_arg){
 }
 
 void ida_filter_sendToClassic(struct pbuf *p){
+	/** Restore original payload and length fields */
+	p->payload = p->payload_orig;
+	p->tot_len = p->tot_len_orig;
+	p->len = p->tot_len;
+
 	if(ida_lwip_queue_put(_ida_lwip_classicQueue,(void*) p) != -1){
 		sys_sem_signal(&_ida_lwip_classicSem);
 	} else {

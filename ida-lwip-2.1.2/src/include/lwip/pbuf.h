@@ -227,6 +227,13 @@ struct pbuf {
 
   /** Priority on Ethernet */
   u8_t ethPrio;
+
+  /** Original payload (not affected by header remove) */
+  void *payload_orig;
+
+  /** Original length (not affected by header remove) */
+  u16_t tot_len_orig;
+
 };
 
 

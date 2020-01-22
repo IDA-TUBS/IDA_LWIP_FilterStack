@@ -126,6 +126,12 @@ ethernet_input(struct pbuf *p, struct netif *netif)
   u16_t next_hdr_offset = SIZEOF_ETH_HDR;
   u8_t prio = 0;
 
+  /* Store orignal payload an size
+   * We need it if we pass the packet unmodified to the classic stack
+   */
+  p->payload_orig = p->payload;
+  p->tot_len_orig = p->tot_len;
+
   if (p->len <= SIZEOF_ETH_HDR) {
     /* a packet with only an ethernet header (or less) is not valid for us */
     ETHARP_STATS_INC(etharp.proterr);
@@ -211,14 +217,9 @@ ethernet_input(struct pbuf *p, struct netif *netif)
       }
       break;
     default:
-//  my_custom_pbuf_t* custom_buf = (my_custom_pbuf_t*)p;
-//  custom_buf->owned_by_classic = true;
-//  increase_obc_cnt();
-//  dummy_to_classic_stack(p);
-    ida_filter_sendToClassic(p);
-	  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n"));
-//	  pbuf_free(p);
-	  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: DROPPED\n"));
+    	/** pass the packet unmodified to the classic stack */
+    	ida_filter_sendToClassic(p);
+    	LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: ethernet: ERR_NOTUS\n"));
 	  return ERR_OK;
   }
 }
