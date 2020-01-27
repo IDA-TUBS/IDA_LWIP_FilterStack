@@ -83,12 +83,15 @@ void ida_lwip_virtEth_master_init(void){
 
 void ida_lwip_virtEth_receiveFromClassic(sys_sem_t txCompleteSem){
 	IDA_LWIP_IPI_QUEUE_ENTRY entry;
-	u8_t res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->txBuffers, &entry);
-	if(res == 1){
-		void *data = (void*)(IDA_LWIP_MEM_FROM_CLASSIC_BASE + (entry.ref * IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE));
-		ida_lwip_send_raw(data, entry.size, &txCompleteSem);
-		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeTxBuffers,&entry);
-	}
+	u8_t res = 0;
+	do{
+		res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->txBuffers, &entry);
+		if(res == 1){
+			void *data = (void*)(IDA_LWIP_MEM_FROM_CLASSIC_BASE + (entry.ref * IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE));
+			ida_lwip_send_raw(data, entry.size, &txCompleteSem);
+			ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeTxBuffers,&entry);
+		}
+	}while(res == 1);
 }
 
 void ida_lwip_virtEth_sendToClassic(struct pbuf* p){
