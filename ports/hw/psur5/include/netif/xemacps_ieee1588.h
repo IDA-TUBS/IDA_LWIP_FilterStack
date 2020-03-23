@@ -119,6 +119,7 @@ void ETH_EnablePTPTimeStampAddend(void);
 void ETH_PTPTime_AdjFreq(int32_t Adj);
 void ETH_PTPTime_AdjOffset(int32_t Adj);
 void ETH_PTPTime_SetTime(struct ptptime_t * timestamp);
+void ETH_PTPTime_SetCompare(uint32_t sec, uint32_t nsec);
 void ETH_PTPTime_GetTime(struct ptptime_t* timestamp);
 void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive);
 
