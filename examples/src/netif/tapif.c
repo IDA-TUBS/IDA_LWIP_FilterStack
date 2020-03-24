@@ -57,7 +57,6 @@
 #include "lwip/ethip6.h"
 
 #include "netif/tapif.h"
-#include "custom_pbuf.h"
 
 #define IFCONFIG_BIN "/sbin/ifconfig "
 
@@ -262,7 +261,6 @@ low_level_output(struct netif *netif, struct pbuf *p)
 static struct pbuf *
 low_level_input(struct netif *netif)
 {
-  my_custom_pbuf_t *my_p;
   struct pbuf *p;
   u16_t len;
   ssize_t readlen;
@@ -288,11 +286,7 @@ low_level_input(struct netif *netif)
 #endif
 
   /* We allocate a pbuf chain of pbufs from the pool. */
- // p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
-  my_p = my_pbuf_alloc_custom(PBUF_RAW, len);
-  p = &my_p->p.pbuf;
-  LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("DEBUG: low_level_input"));
-
+  p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
   if (p != NULL) {
     pbuf_take(p, buf, len);
     /* acknowledge that packet has been read(); */
@@ -367,10 +361,7 @@ tapif_init(struct netif *netif)
   netif->linkoutput = low_level_output;
   netif->mtu = 1500;
 
-  custom_pbuf_init();
-
   low_level_init(netif);
-
 
   return ERR_OK;
 }

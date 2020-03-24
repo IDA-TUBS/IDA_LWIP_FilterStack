@@ -106,7 +106,7 @@ a lot of data that needs to be copied, this should be set high. */
 
 
 /* ---------- ICMP options ---------- */
-#define LWIP_ICMP                       0
+#define LWIP_ICMP                       1
 
 /* ---------- IGMP options ---------- */
 #define LWIP_IGMP			1

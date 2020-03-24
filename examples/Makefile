@@ -1,5 +1,4 @@
 CC=gcc
-VER=restruct
 
 SRCDIR = ./src
 INCDIR = ./include
@@ -10,7 +9,6 @@ PORTDIR = ../ports/os/unix
 SOURCES := \
 	$(SRCDIR)/netif/tapif.c \
 	$(SRCDIR)/test.c \
-	$(SRCDIR)/custom_pbuf.c \
 	$(SRCDIR)/udpecho.c \
 	$(SRCDIR)/default_netif.c \
 	$(PORTDIR)/perf.c \
@@ -20,12 +18,7 @@ OBJ = $(SOURCES:%.c=%.o)
 
 TARGET = example
 
-ifeq ($(VER),restruct)
-LDFLAGS+=-lutil -lpthread -llwipcore_unix_none_restruct
-else
-LDFLAGS+=-lutil -lpthread -llwipcore_unix_none_normal
-endif
-
+LDFLAGS+=-lutil -lpthread -llwipcore_unix_none
 CFLAGS= -Wall -g3 -pthread
 
 INC= -I ./ \
