@@ -224,10 +224,6 @@ u32_t get_base_index_rxpbufsstorage (xemacpsif_s *xemacpsif)
 	return index;
 }
 
-void testTrap(void){
-
-}
-
 void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 {
 	XEmacPs_Bd *txbdset;
@@ -239,7 +235,6 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 	struct pbuf *p;
 	u32 *temp;
 	u32_t index;
-	int goToTrap = 0;
 
 	index = get_base_index_txpbufsstorage (xemacpsif);
 
@@ -248,8 +243,6 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 		n_bds = XEmacPs_BdRingFromHwTx(txring,
 								XLWIP_CONFIG_N_TX_DESC, &txbdset);
 		if (n_bds == 0)  {
-			if(goToTrap)
-				testTrap();
 			return;
 		}
 		/* free the processed BD's */
@@ -267,8 +260,6 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 			}
 			dsb();
 			p = (struct pbuf *)tx_pbufs_storage[index + bdindex];
-			if(p->tot_len == 1072 || p->tot_len == 1076)
-				goToTrap = 1;
 			if (p != NULL) {
 				pbuf_free(p);
 			}
@@ -283,8 +274,6 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 			LWIP_DEBUGF(NETIF_DEBUG, ("Failure while freeing in Tx Done ISR\r\n"));
 		}
 	}
-	if(goToTrap)
-		testTrap();
 	return;
 }
 
@@ -378,9 +367,7 @@ XStatus emacps_sgsend(xemacpsif_s *xemacpsif, struct pbuf *p)
 
 		tx_pbufs_storage[index + bdindex] = (UINTPTR)q;
 
-#ifndef IDA_LWIP
 		pbuf_ref(q);
-#endif
 		last_txbd = txbd;
 		XEmacPs_BdClearLast(txbd);
 		txbd = XEmacPs_BdRingNext(txring, txbd);
