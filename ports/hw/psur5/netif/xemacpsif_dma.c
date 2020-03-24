@@ -531,7 +531,6 @@ void emacps_recv_handler(void *arg)
 			bdindex = XEMACPS_BD_TO_INDEX(rxring, curbdptr);
 			p = (struct pbuf *)rx_pbufs_storage[index + bdindex];
 
-
 			/*
 			 * Adjust the buffer size to the actual number of bytes received.
 			 */
@@ -540,8 +539,6 @@ void emacps_recv_handler(void *arg)
 #else
 			rx_bytes = XEmacPs_BdGetLength(curbdptr);
 #endif
-			if(rx_bytes == 1072)
-				testTrap();
 			pbuf_realloc(p, rx_bytes);
 
 			/* store it in the receive queue,
