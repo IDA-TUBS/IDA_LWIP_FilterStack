@@ -281,7 +281,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
 
   /* match packet against an interface, i.e. is this packet for us? */
   if (ip4_addr_ismulticast(ip4_current_dest_addr())) {
-    if ((inp->flags & NETIF_FLAG_IGMP) && (ida_lwip_igmp_lookfor_group(inp, ip4_current_dest_addr()))) {
+    if ((inp->flags & NETIF_FLAG_IGMP) && (ida_lwip_igmp_is_member(ip4_current_dest_addr()) >= 0)) {
       /* IGMP snooping switches need 0.0.0.0 to be allowed as source address (RFC 4541) */
       ip4_addr_t allsystems;
       IP4_ADDR(&allsystems, 224, 0, 0, 1);

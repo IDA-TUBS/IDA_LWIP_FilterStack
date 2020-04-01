@@ -46,5 +46,6 @@
 void ida_lwip_virtEth_master_init(void);
 void ida_lwip_virtEth_receiveFromClassic(sys_sem_t txCompleteSem);
 void ida_lwip_virtEth_sendToClassic(struct pbuf* p);
+void ida_lwip_virtEth_sendToClassicMgmt(void *mgmtData, size_t size);
 
 #endif /* __NETIF_IDA_LWIP_VIRTETH_H__ */

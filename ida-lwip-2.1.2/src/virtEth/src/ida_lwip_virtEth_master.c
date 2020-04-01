@@ -74,11 +74,15 @@ void ida_lwip_virtEth_master_init(void){
 		/* create entry for queue */
 		entry.ref = (u32_t)i;
 		entry.size = IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE;
+		entry.type = IDA_LWIP_MEM_MSG_TYPE_UNDEF;
 		/* put in txFree Queue */
 		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeTxBuffers,&entry);
 	}
 
 	XIpiPsu_CfgInitialize(&IPIInstance, &XIpiPsu_ConfigTable[0], (UINTPTR) XIpiPsu_ConfigTable[0].BaseAddress);
+
+	_ida_lwip_sharedMem->ready[0] = 1;
+	while(_ida_lwip_sharedMem->ready[1] == 0);;
 }
 
 void ida_lwip_virtEth_receiveFromClassic(sys_sem_t txCompleteSem){
@@ -88,7 +92,12 @@ void ida_lwip_virtEth_receiveFromClassic(sys_sem_t txCompleteSem){
 		res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->txBuffers, &entry);
 		if(res == 1){
 			void *data = (void*)(IDA_LWIP_MEM_FROM_CLASSIC_BASE + (entry.ref * IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE));
-			ida_lwip_send_raw(data, entry.size, &txCompleteSem);
+			if(entry.type == IDA_LWIP_MEM_MSG_TYPE_DATA){
+				ida_lwip_send_raw(data, entry.size, &txCompleteSem);
+			} else if(entry.type == IDA_LWIP_MEM_MSG_TYPE_MGMT){
+				/* handle management message here */
+				//Todo: Not implemented yet
+			}
 			ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeTxBuffers,&entry);
 		}
 	}while(res == 1);
@@ -101,10 +110,27 @@ void ida_lwip_virtEth_sendToClassic(struct pbuf* p){
 		void *data = (void*)(IDA_LWIP_MEM_TO_CLASSIC_BASE + (entry.ref * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE));
 		pbuf_copy_partial(p,data,p->tot_len,0);
 		entry.size = p->tot_len;
+		entry.type = IDA_LWIP_MEM_MSG_TYPE_DATA;
 		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->rxBuffers, &entry);
 	}
 	XIpiPsu_TriggerIpi(&IPIInstance, XIpiPsu_ConfigTable[0].TargetList[0].Mask);
 }
 
+void ida_lwip_virtEth_sendToClassicMgmt(void *mgmtData, size_t size){
+	IDA_LWIP_IPI_QUEUE_ENTRY entry;
+
+	if(size > IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE)
+		return;
+
+	u8_t res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->freeRxBuffers, &entry);
+	if(res == 1){
+		void *data = (void*)(IDA_LWIP_MEM_TO_CLASSIC_BASE + (entry.ref * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE));
+		memcpy(data,mgmtData,size);
+		entry.size = size;
+		entry.type = IDA_LWIP_MEM_MSG_TYPE_MGMT;
+		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->rxBuffers, &entry);
+	}
+	XIpiPsu_TriggerIpi(&IPIInstance, XIpiPsu_ConfigTable[0].TargetList[0].Mask);
+}
 
 

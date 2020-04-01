@@ -65,11 +65,26 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
 	void* data = (void*)(IDA_LWIP_MEM_FROM_CLASSIC_BASE + entry.ref * IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE);
 	pbuf_copy_partial(p,data,p->tot_len,0);
 	entry.size = p->tot_len;
+	entry.type = IDA_LWIP_MEM_MSG_TYPE_DATA;
 	ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->txBuffers,&entry);
 
 
 	SYS_ARCH_UNPROTECT(lev);
 	return ERR_OK;
+}
+
+void ida_lwip_virtEth_slave_handleMgmt(u32_t *data, u32_t size){
+	switch(data[0]){
+	case IDA_LWIP_MGMT_IGMP_JOIN:
+		/* Test IGMP Request */
+		igmp_joingroup(IP_ADDR_ANY,(ip4_addr_t*)&data[1]);
+		break;
+	case IDA_LWIP_MGMT_IGMP_LEAVE:
+		/* Test IGMP leave */
+		igmp_leavegroup_netif(NetIf,(ip4_addr_t*)&data[1]);
+	default:
+		break;
+	}
 }
 
 static void _ida_rx_pbuf_free(struct pbuf *p)
@@ -85,83 +100,76 @@ static void _ida_rx_pbuf_free(struct pbuf *p)
 	OS_EXIT_CRITICAL();
 }
 
-/*
- * low_level_input():
- *
- * Should allocate a pbuf and transfer the bytes of the incoming
- * packet from the interface into the pbuf.
- *
- */
-static struct pbuf * low_level_input(struct netif *netif)
-{
-	struct pbuf *p;
-	IDA_LWIP_IPI_QUEUE_ENTRY entry;
-	RX_PBUF_T* rx_pbuf;
-
-	u8_t res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->rxBuffers, &entry);
-	if(res == 0){
-		return NULL;
-	}
-	rx_pbuf = &rxPbufStorage[entry.ref];
-
-	p = pbuf_alloced_custom(PBUF_RAW,
-			entry.size,
-			PBUF_REF,
-			&rx_pbuf->p,
-			rx_pbuf->data,
-			1502);
-
-	return p;
-}
-
 s32_t ida_lwip_virtEth_slave_input(struct netif *netif)
 {
 	struct eth_hdr *ethhdr;
 	struct pbuf *p;
 	SYS_ARCH_DECL_PROTECT(lev);
+	RX_PBUF_T* rx_pbuf;
+	IDA_LWIP_IPI_QUEUE_ENTRY entry;
 
 	/* move received packet into a new pbuf */
 	SYS_ARCH_PROTECT(lev);
-	p = low_level_input(netif);
-	SYS_ARCH_UNPROTECT(lev);
-
-	/* no packet could be read, silently ignore this */
-	if (p == NULL) {
+	u8_t res = ida_lwip_virtEth_queueGet(&_ida_lwip_sharedMem->rxBuffers, &entry);
+	if(res == 0){
+		SYS_ARCH_UNPROTECT(lev);
 		return 0;
 	}
 
-	/* points to packet payload, which starts with an Ethernet header */
-	ethhdr = p->payload;
+	if(entry.type == IDA_LWIP_MEM_MSG_TYPE_MGMT){
+		/* handle message and return */
+		void *data = (void*)(IDA_LWIP_MEM_TO_CLASSIC_BASE + entry.ref * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE);
+		ida_lwip_virtEth_slave_handleMgmt((u32_t*)data, entry.size);
+		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeRxBuffers,&entry);
+		SYS_ARCH_UNPROTECT(lev);
+		return 1;
+	} else if(entry.type == IDA_LWIP_MEM_MSG_TYPE_DATA){
+		rx_pbuf = &rxPbufStorage[entry.ref];
 
-#if LINK_STATS
-	lwip_stats.link.recv++;
-#endif /* LINK_STATS */
+		p = pbuf_alloced_custom(PBUF_RAW,
+				entry.size,
+				PBUF_REF,
+				&rx_pbuf->p,
+				rx_pbuf->data,
+				1502);
 
-	switch (htons(ethhdr->type)) {
-		/* IP or ARP packet? */
-		case ETHTYPE_IP:
-		case ETHTYPE_ARP:
-#if LWIP_IPV6
-		/*IPv6 Packet?*/
-		case ETHTYPE_IPV6:
-#endif
-#if PPPOE_SUPPORT
-			/* PPPoE packet? */
-		case ETHTYPE_PPPOEDISC:
-		case ETHTYPE_PPPOE:
-#endif /* PPPOE_SUPPORT */
-			/* full packet send to tcpip_thread to process */
-			if (netif->input(p, netif) != ERR_OK) {
-				LWIP_DEBUGF(NETIF_DEBUG, ("xemacpsif_input: IP input error\r\n"));
+		SYS_ARCH_UNPROTECT(lev);
+
+		/* points to packet payload, which starts with an Ethernet header */
+		ethhdr = p->payload;
+
+	#if LINK_STATS
+		lwip_stats.link.recv++;
+	#endif /* LINK_STATS */
+
+		switch (htons(ethhdr->type)) {
+			/* IP or ARP packet? */
+			case ETHTYPE_IP:
+			case ETHTYPE_ARP:
+	#if LWIP_IPV6
+			/*IPv6 Packet?*/
+			case ETHTYPE_IPV6:
+	#endif
+	#if PPPOE_SUPPORT
+				/* PPPoE packet? */
+			case ETHTYPE_PPPOEDISC:
+			case ETHTYPE_PPPOE:
+	#endif /* PPPOE_SUPPORT */
+				/* full packet send to tcpip_thread to process */
+				if (netif->input(p, netif) != ERR_OK) {
+					LWIP_DEBUGF(NETIF_DEBUG, ("xemacpsif_input: IP input error\r\n"));
+					pbuf_free(p);
+					p = NULL;
+				}
+				break;
+
+			default:
 				pbuf_free(p);
 				p = NULL;
-			}
-			break;
-
-		default:
-			pbuf_free(p);
-			p = NULL;
-			break;
+				break;
+		}
+	} else {
+		SYS_ARCH_UNPROTECT(lev);
 	}
 
 	return 1;
@@ -227,15 +235,14 @@ static err_t low_level_init(struct netif *netif)
 	UCOS_IntVectSet(XIpiPsu_ConfigTable[0].IntId, 0, 0, ida_lwip_virtEth_irq_handler, DEF_NULL);
 	UCOS_IntSrcEn(XIpiPsu_ConfigTable[0].IntId);
 
+	_ida_lwip_sharedMem->ready[1] = 1;
+	while(!_ida_lwip_sharedMem->ready[0]);;
+
 	/* maximum transfer unit */
 #ifdef ZYNQMP_USE_JUMBO
 	netif->mtu = XEMACPS_MTU_JUMBO - XEMACPS_HDR_SIZE;
 #else
 	netif->mtu = 1486;//XEMACPS_MTU - XEMACPS_HDR_SIZE;
-#endif
-
-#if LWIP_IGMP || defined(IDA_LWIP)
-//	netif->igmp_mac_filter = (netif_igmp_mac_filter_fn) xemacpsif_mac_filter_update;
 #endif
 
 #if LWIP_IPV6 && LWIP_IPV6_MLD

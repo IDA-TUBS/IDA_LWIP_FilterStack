@@ -53,12 +53,19 @@
 #define	IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE 		1502
 #define IDA_LWIP_MEM_TO_CLASSIC_SIZE			(IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE*IDA_LWIP_MEM_QUEUE_SIZE)
 
+#define IDA_LWIP_MEM_MSG_TYPE_UNDEF		0
+#define IDA_LWIP_MEM_MSG_TYPE_DATA		1
+#define IDA_LWIP_MEM_MSG_TYPE_MGMT		2
+
+#define IDA_LWIP_MGMT_IGMP_JOIN			0
+#define IDA_LWIP_MGMT_IGMP_LEAVE		1
 
 #define CEIL_ALIGN(x) 	x%sizeof(u32_t)==0 ? (x) : ((x/sizeof(u32_t))+sizeof(u32_t))
 
 typedef struct __attribute__((packed, aligned(8))){
 	u32_t 	size;
 	u32_t 	ref;
+	u32_t	type;
 } IDA_LWIP_IPI_QUEUE_ENTRY;
 
 typedef struct __attribute__((packed, aligned(8))){
@@ -71,6 +78,7 @@ typedef struct __attribute__((packed, aligned(8))){
 } IDA_LWIP_IPI_QUEUE;
 
 typedef struct __attribute__((packed)){
+	u32_t					ready[2];
 	IDA_LWIP_IPI_QUEUE		freeRxBuffers;
 	IDA_LWIP_IPI_QUEUE		freeTxBuffers;	/* free buffers that can be filled by classic stack */
 	IDA_LWIP_IPI_QUEUE		rxBuffers;		/* RX Packets to classic stack */
