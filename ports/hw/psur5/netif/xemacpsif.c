@@ -388,6 +388,12 @@ static err_t low_level_init(struct netif *netif)
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress,
 											XEMACPS_DMACR_OFFSET, dmacrreg);
 
+	dmacrreg = XEmacPs_ReadReg(xemacpsif->emacps.Config.BaseAddress,
+															XEMACPS_DMACR_OFFSET);
+	dmacrreg = dmacrreg | XEMACPS_DMACR_FORCEDISCERR_MASK;
+	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress,
+											XEMACPS_DMACR_OFFSET, dmacrreg);
+
 #if defined(OS_IS_FREERTOS) && defined(__arm__) && !defined(ARMR5)
 	/* Freertos tick is 10ms by default; set period to the same */
 	xemac->xTimer = xTimerCreate("Timer", 10, pdTRUE, ( void * ) 1, vTimerCallback);

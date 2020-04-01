@@ -441,20 +441,6 @@ void setup_rx_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *rxring)
 			pbuf_free(p);
 			return;
 		}
-		status = XEmacPs_BdRingToHw(rxring, 1, rxbd);
-		if (status != XST_SUCCESS) {
-			LWIP_DEBUGF(NETIF_DEBUG, ("Error committing RxBD to hardware: "));
-			if (status == XST_DMA_SG_LIST_ERROR) {
-				LWIP_DEBUGF(NETIF_DEBUG, ("XST_DMA_SG_LIST_ERROR: this function was called out of sequence with XEmacPs_BdRingAlloc()\r\n"));
-			}
-			else {
-				LWIP_DEBUGF(NETIF_DEBUG, ("set of BDs was rejected because the first BD did not have its start-of-packet bit set, or the last BD did not have its end-of-packet bit set, or any one of the BD set has 0 as length value\r\n"));
-			}
-
-			pbuf_free(p);
-			XEmacPs_BdRingUnAlloc(rxring, 1, rxbd);
-			return;
-		}
 #ifdef ZYNQMP_USE_JUMBO
 		if (xemacpsif->emacps.Config.IsCacheCoherent == 0) {
 			Xil_DCacheInvalidateRange((UINTPTR)p->payload, (UINTPTR)MAX_FRAME_SIZE_JUMBO);
@@ -484,6 +470,20 @@ void setup_rx_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *rxring)
 		XEmacPs_BdSetAddressRx(rxbd, (UINTPTR)p->payload);
 #endif
 		rx_pbufs_storage[index + bdindex] = (UINTPTR)p;
+		status = XEmacPs_BdRingToHw(rxring, 1, rxbd);
+		if (status != XST_SUCCESS) {
+			LWIP_DEBUGF(NETIF_DEBUG, ("Error committing RxBD to hardware: "));
+			if (status == XST_DMA_SG_LIST_ERROR) {
+				LWIP_DEBUGF(NETIF_DEBUG, ("XST_DMA_SG_LIST_ERROR: this function was called out of sequence with XEmacPs_BdRingAlloc()\r\n"));
+			}
+			else {
+				LWIP_DEBUGF(NETIF_DEBUG, ("set of BDs was rejected because the first BD did not have its start-of-packet bit set, or the last BD did not have its end-of-packet bit set, or any one of the BD set has 0 as length value\r\n"));
+			}
+
+			pbuf_free(p);
+			XEmacPs_BdRingUnAlloc(rxring, 1, rxbd);
+			return;
+		}
 	}
 }
 
@@ -759,7 +759,7 @@ XStatus init_dma(struct xemac_s *xemac)
 #ifdef ZYNQMP_USE_JUMBO
 		p = pbuf_alloc(PBUF_RAW, MAX_FRAME_SIZE_JUMBO, PBUF_POOL);
 #else
-		p = pbuf_alloc(PBUF_RAW, XEMACPS_MAX_FRAME_SIZE, PBUF_POOL);
+		p = pbuf_alloc(PBUF_RAW, XEMACPS_MAX_VLAN_FRAME_SIZE, PBUF_POOL);
 #endif
 		if (!p) {
 #if LINK_STATS

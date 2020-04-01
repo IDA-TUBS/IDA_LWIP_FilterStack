@@ -409,6 +409,7 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
 #define XEMACPS_DMACR_ADDR_WIDTH_64		0x40000000U /**< 64 bit address bus */
 #define XEMACPS_DMACR_TXEXTEND_MASK		0x20000000U /**< Tx Extended desc mode */
 #define XEMACPS_DMACR_RXEXTEND_MASK		0x10000000U /**< Rx Extended desc mode */
+#define XEMACPS_DMACR_FORCEDISCERR_MASK 0x01000000U /**< Discard packet on buffer underrun */
 #define XEMACPS_DMACR_RXBUF_MASK		0x00FF0000U /**< Mask bit for RX buffer
 													size */
 #define XEMACPS_DMACR_RXBUF_SHIFT 		16U	/**< Shift bit for RX buffer

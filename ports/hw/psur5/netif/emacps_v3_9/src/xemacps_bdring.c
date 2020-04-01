@@ -807,6 +807,8 @@ u32 XEmacPs_BdRingFromHwRx(XEmacPs_BdRing * RingPtr, u32 BdLimit,
 		Status = 0U;
 	} else {
 
+		if(BdLimit > RingPtr->HwCnt)
+			BdLimit = RingPtr->HwCnt;
 	/* Starting at HwHead, keep moving forward in the list until:
 	 *  - A BD is encountered with its new/used bit set which means
 	 *    hardware has completed processing of that BD.
