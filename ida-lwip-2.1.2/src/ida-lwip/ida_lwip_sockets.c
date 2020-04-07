@@ -921,6 +921,16 @@ void ida_lwip_set_socket_prio(int fd, u8_t prio){
 	OS_EXIT_CRITICAL();
 }
 
+void ida_lwip_set_socket_buffer(int fd, u16_t trigger){
+	CPU_SR cpu_sr;
+	if(!_IDA_LWIP_IS_SOCKET(fd))
+		return;
+
+	OS_ENTER_CRITICAL();
+	ida_lwip_queue_set_trigger(sockets[fd].queue,trigger);
+	OS_EXIT_CRITICAL();
+}
+
 /****************************************************************************
  * USER_LEVEL_API
  * socket(): Create a new socket

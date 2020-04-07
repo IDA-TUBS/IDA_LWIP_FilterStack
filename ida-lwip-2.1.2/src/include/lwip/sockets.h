@@ -533,6 +533,7 @@ void lwip_socket_thread_cleanup(void); /* LWIP_NETCONN_SEM_PER_THREAD==1: destro
 
 u8_t ida_lwip_get_socket_prio(int fd);
 void ida_lwip_set_socket_prio(int fd, u8_t prio);
+void ida_lwip_set_socket_buffer(int fd, u16_t trigger);
 void ida_lwip_socketSupervisorTask(void *p_arg);
 void ida_lwip_initSockets(void);
 struct ida_lwip_sock *get_socket(int fd);
