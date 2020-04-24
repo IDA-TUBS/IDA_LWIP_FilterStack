@@ -77,5 +77,10 @@ err_t ida_filter_enqueue_pkt(void *data, u8_t prio, u8_t direction);
 ssize_t ida_lwip_send_raw(void *data, size_t size, sys_sem_t *completeSem);
 void ida_filter_init(struct netif *netif);
 
+#if LWIP_PTP == 1
+struct pbuf* ida_filter_receivePtp(u32_t timeout);
+int ida_filter_enqueu_ptp_rx(struct pbuf *p);
+#endif
+
 
 #endif /* _IDA_LWIP_IDA_LWIP_FILTER_H_ */

@@ -216,6 +216,25 @@ ethernet_input(struct pbuf *p, struct netif *netif)
         return ERR_OK;
       }
       break;
+#if LWIP_PTP == 1
+    case PP_HTONS(ETHTYPE_PTP):
+		/* skip Ethernet header (min. size checked above) */
+		if (pbuf_remove_header(p, next_hdr_offset)) {
+			LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
+					("ethernet_input: PTP packet dropped, too short (%"U16_F"/%"U16_F")\n",
+					 p->tot_len, next_hdr_offset));
+			LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("Can't move over header in packet"));
+			pbuf_free(p);
+			return ERR_OK;
+		} else {
+			if(ida_filter_enqueu_ptp_rx(p) == -1){
+				pbuf_free(p);
+			}
+			return ERR_OK;
+		}
+    	break;
+#endif
+
     default:
     	/** pass the packet unmodified to the classic stack */
     	ida_filter_sendToClassic(p);
