@@ -78,8 +78,12 @@ void init_emacps(xemacpsif_s *xemacps, struct netif *netif)
 	XEmacPs_SetOptions(xemacpsp, XEMACPS_JUMBO_ENABLE_OPTION);
 #endif
 
-#if LWIP_IGMP || defined(IDA_LWIP)
+#if LWIP_IGMP
 	XEmacPs_SetOptions(xemacpsp, XEMACPS_MULTICAST_OPTION);
+#endif
+
+#if defined(IDA_LWIP)
+	XEmacPs_SetOptions(xemacpsp, XEMACPS_PROMISC_OPTION);
 #endif
 
 	/* set mac address */
