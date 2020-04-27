@@ -234,6 +234,14 @@ struct pbuf {
   /** Original length (not affected by header remove) */
   u16_t tot_len_orig;
 
+#if LWIP_PTP
+  /** Timestamp Seconds */
+  u32_t ts_sec;
+
+  /** Timestamp Nanoseconds */
+  u32_t ts_nsec;
+#endif
+
 };
 
 

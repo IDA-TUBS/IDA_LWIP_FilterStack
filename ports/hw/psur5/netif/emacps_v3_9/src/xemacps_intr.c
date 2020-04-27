@@ -211,6 +211,7 @@ void XEmacPs_IntrHandler(void *XEmacPsPtr)
 	}
 #endif
 
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
 	/* PTP Sync Frame Received */
 	if ((RegISR & XEMACPS_IXR_PTPSRX_MASK) != 0x00000000U) {
 		/* Clear RX status register RX complete indication but preserve
@@ -249,6 +250,7 @@ void XEmacPs_IntrHandler(void *XEmacPsPtr)
 				((u32)XEMACPS_TXSR_TXCOMPL_MASK | (u32)XEMACPS_TXSR_USEDREAD_MASK));
 		XEmacPs_GetTxTimestamp();
 	}
+#endif
 #endif
 
 	/* Receive complete interrupt */

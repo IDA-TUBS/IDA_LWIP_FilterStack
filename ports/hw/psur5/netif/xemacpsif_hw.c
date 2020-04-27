@@ -86,6 +86,16 @@ void init_emacps(xemacpsif_s *xemacps, struct netif *netif)
 	XEmacPs_SetOptions(xemacpsp, XEMACPS_PROMISC_OPTION);
 #endif
 
+#if LWIP_FULL_CSUM_OFFLOAD_RX
+	XEmacPs_SetOptions(xemacpsp, XEMACPS_RX_CHKSUM_ENABLE_OPTION);
+#endif
+
+#if LWIP_FULL_CSUM_OFFLOAD_TX
+	XEmacPs_SetOptions(xemacpsp, XEMACPS_TX_CHKSUM_ENABLE_OPTION);
+#endif
+
+	XEmacPs_SetOptions(xemacpsp, XEMACPS_RX_ERR_DISCARD_OPTION);
+
 	/* set mac address */
 	status = XEmacPs_SetMacAddress(xemacpsp, (void*)(netif->hwaddr), 1);
 	if (status != XST_SUCCESS) {

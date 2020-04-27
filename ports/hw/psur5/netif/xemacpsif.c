@@ -382,17 +382,7 @@ static err_t low_level_init(struct netif *netif)
 	/* initialize the mac */
 	init_emacps(xemacpsif, netif);
 
-	dmacrreg = XEmacPs_ReadReg(xemacpsif->emacps.Config.BaseAddress,
-														XEMACPS_DMACR_OFFSET);
-	dmacrreg = dmacrreg | (0x00000010);
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress,
-											XEMACPS_DMACR_OFFSET, dmacrreg);
-
-	dmacrreg = XEmacPs_ReadReg(xemacpsif->emacps.Config.BaseAddress,
-															XEMACPS_DMACR_OFFSET);
-	dmacrreg = dmacrreg | XEMACPS_DMACR_FORCEDISCERR_MASK;
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress,
-											XEMACPS_DMACR_OFFSET, dmacrreg);
+	XEmacPs_DMABLengthUpdate(xemacpsif, XEMACPS_16BYTE_BURST);
 
 #if defined(OS_IS_FREERTOS) && defined(__arm__) && !defined(ARMR5)
 	/* Freertos tick is 10ms by default; set period to the same */
@@ -407,22 +397,18 @@ static err_t low_level_init(struct netif *netif)
 #endif
 	setup_isr(xemac);
 	init_dma(xemac);
+
+#if XPAR_EMACPS_TSU_ENABLE
+	/* Init ptp, all options have to be set before start_emacps() is called */
+	XEmacPs_initPtp(xemacpsif);
+#endif
+
 	start_emacps(xemacpsif);
 
 	/* replace the state in netif (currently the emac baseaddress)
 	 * with the mac instance pointer.
 	 */
 	netif->state = (void *)xemac;
-
-
-#if LWIP_FULL_CSUM_OFFLOAD_RX && LWIP_FULL_CSUM_OFFLOAD_TX
-	XEmacPs_EnableChecksumOffload(&xemacpsif->emacps);
-#endif
-
-
-#if XPAR_EMACPS_TSU_ENABLE
-	XEmacPs_initPtp(xemacpsif);
-#endif
 
 	return ERR_OK;
 }

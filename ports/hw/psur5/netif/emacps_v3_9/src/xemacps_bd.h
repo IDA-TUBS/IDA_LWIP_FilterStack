@@ -96,7 +96,11 @@ extern "C" {
 #else
 /* Minimum BD alignment */
 #define XEMACPS_DMABD_MINIMUM_ALIGNMENT  4U
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+#define XEMACPS_BD_NUM_WORDS 4U
+#else
 #define XEMACPS_BD_NUM_WORDS 2U
+#endif
 #endif
 
 /**
@@ -334,6 +338,46 @@ typedef u32 XEmacPs_Bd[XEMACPS_BD_NUM_WORDS];
 #define XEmacPs_GetRxFrameSize(InstancePtr, BdPtr)                   \
     (XEmacPs_BdRead((BdPtr), XEMACPS_BD_STAT_OFFSET) &            \
     (InstancePtr)->RxBufMask)
+
+/*****************************************************************************/
+/**
+ * Retrieve the Nanosecond timestamp from a buffer descriptor.
+ *
+ * The returned value is the 29:0 Bit range of the descriptor word 2
+ *
+ * @param  BdPtr is the BD pointer to operate on
+ *
+ * @return Nanosecond timestamp
+ *
+ * @note
+ * C-style signature:
+ *    UINTPTR XEmacPs_BdGetTsNSeconds(XEmacPs_Bd* BdPtr)
+ *
+ *****************************************************************************/
+#define XEmacPs_BdGetTsNSeconds(BdPtr)                   \
+    (XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD2_OFFSET) &            \
+    		XEMACPS_RXBUF_WORD2_NS_MASK)
+
+/*****************************************************************************/
+/**
+ * Retrieve the Second timestamp from a buffer descriptor.
+ *
+ * The returned value is the [1:0] Bit range of the descriptor word 2
+ * concatenated with the [5:2] Bit range of the descriptor word 3
+ *
+ * @param  BdPtr is the BD pointer to operate on
+ *
+ * @return Second timestamp
+ *
+ * @note
+ * C-style signature:
+ *    UINTPTR XEmacPs_BdGetTsSeconds(XEmacPs_Bd* BdPtr)
+ *
+ *****************************************************************************/
+#define XEmacPs_BdGetTsSeconds(BdPtr)                   \
+    (((XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD2_OFFSET) & XEMACPS_RXBUF_WORD2_S_MASK) >> XEMACPS_RXBUF_WORD2_S_OFFSET) | \
+    		(XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD3_OFFSET) & XEMACPS_RXBUF_WORD3_S_MASK))
+
 
 /*****************************************************************************/
 /**

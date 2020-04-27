@@ -41,7 +41,7 @@
  ************************************************************************************************
  */
 
-
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
 /*
  * PTP Timestamp from Rx ptp capture register
  */
@@ -59,7 +59,7 @@ uint32_t Ptp_TxTimeStampNSeconds;
  * new captures
  */
 sys_sem_t sem_tx_ptp_available;
-
+#endif
 /*
  * Initial TSU Increment
  */
@@ -111,6 +111,7 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 	/* Enable One Step Sync Mode */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_NWCTRL_OFFSET, regVal | XEMACPS_NWCTRL_OSSM_MASK);
 #endif
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
 	/*Enable PTP Sync Received Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPSRX_MASK);
 
@@ -122,7 +123,7 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 
 	/*Enable PTP Delay_req Transmitted Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPDRTX_MASK);
-
+#endif
 	/* Enable PTP TSU Compare Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTP_CMP_MASK);
 
@@ -131,10 +132,14 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTP_PPS_MASK);
 #endif
 
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+	XEmacPs_SetOptions(&xemacpsif->emacps, XEMACPS_BD_EXTENDED_RX_OPTION | XEMACPS_BD_EXTENDED_TX_OPTION);
+#endif
+
 	XEmacPs_InitTsu();
 }
 
-
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
 /*****************************************************************************/
 /**
  * Reads tsu_ptp_rx_sec and tsu_ptp_rx_nsec Registers from GEM3.
@@ -228,7 +233,7 @@ void XEmacPs_GetTxTimestamp(void) {
 	sys_sem_signal(&sem_tx_ptp_available);
 
 }
-
+#endif
 
 /*****************************************************************************/
 /**
@@ -414,6 +419,7 @@ XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void)
 	return incr;
 }
 
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
 /*****************************************************************************/
 /**
 * Get the current PTP Timestamp from the capture register
@@ -436,4 +442,29 @@ void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
 
 	}
 }
+#endif
+
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+/*****************************************************************************/
+/**
+* Get the current PTP Timestamp from the capture register
+*
+* @param time_s nanoseconds portion from timestamp
+* @param time_ns subnanoseconds portion
+* @param receive is the direction, true for receive
+*
+*
+******************************************************************************/
+void ETH_PTP_GetBdTimestamp(int32_t *time_s, int32_t *time_ns, XEmacPs_Bd *bdptr)
+{
+	struct ptptime_t timestamp;
+	ETH_PTPTime_GetTime(&timestamp);
+	timestamp.tv_nsec = XEmacPs_BdGetTsNSeconds(bdptr);
+	timestamp.tv_sec &= ~0x3F;
+	timestamp.tv_sec |= XEmacPs_BdGetTsSeconds(bdptr);
+	*time_ns = timestamp.tv_nsec;
+	*time_s = timestamp.tv_sec;
+}
+#endif
+
 #endif

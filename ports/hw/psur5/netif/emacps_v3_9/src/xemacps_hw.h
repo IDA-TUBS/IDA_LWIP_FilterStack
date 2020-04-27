@@ -547,7 +547,8 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
 #define XEMACPS_BD_ADDR_OFFSET  0x00000000U /**< word 0/addr of BDs */
 #define XEMACPS_BD_STAT_OFFSET  0x00000004U /**< word 1/status of BDs */
 #define XEMACPS_BD_ADDR_HI_OFFSET  0x00000008U /**< word 2/addr of BDs */
-
+#define XEMACPS_BD_TS_WORD2_OFFSET  0x00000008U /**< word 2/addr of BDs */
+#define XEMACPS_BD_TS_WORD3_OFFSET  0x0000000CU /**< word 3/addr of BDs */
 /*
  * @}
  */
@@ -605,6 +606,11 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
 #define XEMACPS_RXBUF_WRAP_MASK      0x00000002U /**< Wrap bit, last BD */
 #define XEMACPS_RXBUF_NEW_MASK       0x00000001U /**< Used bit.. */
 #define XEMACPS_RXBUF_ADD_MASK       0xFFFFFFFCU /**< Mask for address */
+
+#define XEMACPS_RXBUF_WORD2_NS_MASK	 0x3FFFFFFFU /**< Mask for nanosecond timestamp in word 2 */
+#define XEMACPS_RXBUF_WORD2_S_MASK	 0xC0000000U /**< Mask for second [1:0] timestamp in word 2 */
+#define XEMACPS_RXBUF_WORD2_S_OFFSET 0x0000001EU /**< Seconds part has to be shifted 30 bits to the right */
+#define XEMACPS_RXBUF_WORD3_S_MASK	 0x0000003CU /**< Mask for second [5:2] timestamp in word 3 */
 /*
  * @}
  */
