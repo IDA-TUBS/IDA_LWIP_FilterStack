@@ -102,10 +102,12 @@ typedef struct {
 
 void XEmacPs_InitTsu(void);
 void XEmacPs_initPtp(xemacpsif_s *xemacpsif);
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
 void XEmacPs_GetRxTimestamp(void);
 void XEmacPs_GetTxTimestamp(void);
 void XEmacPs_GetDelayReqRxTimestamp(void);
 void XEmacPs_GetDelayReqTxTimestamp(void);
+#endif
 u32 XEmacPs_TsuCalcClk(u32 Freq);
 void XEmacPs_WriteTsuIncr(u32 ns, u32 subns);
 XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void);
@@ -121,8 +123,13 @@ void ETH_PTPTime_AdjOffset(int32_t Adj);
 void ETH_PTPTime_SetTime(struct ptptime_t * timestamp);
 void ETH_PTPTime_SetCompare(uint32_t sec, uint32_t nsec);
 void ETH_PTPTime_GetTime(struct ptptime_t* timestamp);
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
 void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive);
+#endif
 
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+void ETH_PTP_GetBdTimestamp(int32_t *time_s, int32_t *time_ns, XEmacPs_Bd *bdptr);
+#endif
 
 #ifdef __cplusplus
 }

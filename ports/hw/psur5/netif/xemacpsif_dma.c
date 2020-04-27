@@ -59,6 +59,10 @@
 #include "ucos_int.h"
 #endif
 
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+#include "netif/xemacps_ieee1588.h"
+#endif
+
 #define INTC_BASE_ADDR		XPAR_SCUGIC_0_CPU_BASEADDR
 #define INTC_DIST_BASE_ADDR	XPAR_SCUGIC_0_DIST_BASEADDR
 
@@ -547,8 +551,8 @@ void emacps_recv_handler(void *arg)
 #endif
 			pbuf_realloc(p, rx_bytes);
 
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
-			ETH_PTP_GetBdTimestamp(&time_s, &time_ns, curbdptr);
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1 && LWIP_PTP
+			ETH_PTP_GetBdTimestamp(&p->ts_sec, &p->ts_nsec, curbdptr);
 #endif
 
 			/* store it in the receive queue,
