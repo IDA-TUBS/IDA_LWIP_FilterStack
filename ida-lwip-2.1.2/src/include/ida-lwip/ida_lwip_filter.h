@@ -76,6 +76,7 @@ void ida_filter_sendToClassic(struct pbuf *p);
 err_t ida_filter_enqueue_pkt(void *data, u8_t prio, u8_t direction);
 ssize_t ida_lwip_send_raw(void *data, size_t size, sys_sem_t *completeSem);
 void ida_filter_init(struct netif *netif);
+void ida_filter_init_classicAdapter(void);
 
 #if LWIP_PTP == 1
 struct pbuf* ida_filter_receivePtp(u32_t timeout);

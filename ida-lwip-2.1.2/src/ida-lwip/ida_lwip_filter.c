@@ -95,6 +95,13 @@ void ida_filter_init(struct netif *netif){
 
 	sys_thread_new("ida_lwip_rx_filter",(void (*)(void*)) _ida_filter_thread, NULL, IDA_LWIP_RX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 1);
 	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_TX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 2);
+}
+
+/*
+ * Initialize the virtEth interface, sync with slave core and start the classic adapter
+ * this must be called when the ethernet interface is ready
+ */
+void ida_filter_init_classicAdapter(void){
 	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_classicAdapter, NULL, IDA_LWIP_CLASSIC_ADAPTER_STACK_SIZE,	OS_LOWEST_PRIO - 10);
 }
 
