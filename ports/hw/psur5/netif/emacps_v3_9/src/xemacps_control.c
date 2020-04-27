@@ -70,33 +70,6 @@
 /************************** Variable Definitions *****************************/
 
 /*****************************************************************************/
-/**
- * Write to network_config and dma_config register
- * to enable Rx and Tx Checksum Offloading.
- * LwIP still has to be informed about the crc offload
- *
- * @param xemacpsif_s *xemacpsif instance to be worked on
- *
- * @note		None.
- *
- ******************************************************************************/
-void XEmacPs_EnableChecksumOffload(XEmacPs *InstancePtr) {
-
-	u32 Reg;
-
-	//Read network_config Register
-	Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress,XEMACPS_NWCFG_OFFSET);
-
-	// Enable Rx Checksum Offload in network_config reg
-	XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_NWCFG_OFFSET, Reg | XEMACPS_NWCFG_RXCHKSUMEN_MASK);
-
-	// Read dma_config register
-	Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress, XEMACPS_DMACR_OFFSET);
-
-	// Enable Tx Checksum Offload in dma_config reg
-	XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_DMACR_OFFSET, Reg | XEMACPS_DMACR_TCPCKSUM_MASK);
-
-}
 
 /*****************************************************************************/
 /**
@@ -587,7 +560,7 @@ LONG XEmacPs_SetOptions(XEmacPs *InstancePtr, u32 Options)
 	}
 
 	/* Enable TX checksum offload */
-		if ((Options & XEMACPS_TX_CHKSUM_ENABLE_OPTION) != 0x00000000U) {
+	if ((Options & XEMACPS_TX_CHKSUM_ENABLE_OPTION) != 0x00000000U) {
 		Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress,
 					XEMACPS_DMACR_OFFSET);
 		Reg |= XEMACPS_DMACR_TCPCKSUM_MASK;
@@ -611,6 +584,30 @@ LONG XEmacPs_SetOptions(XEmacPs *InstancePtr, u32 Options)
 		Reg |= XEMACPS_NWCTRL_RXEN_MASK;
 		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress,
 				   XEMACPS_NWCTRL_OFFSET, Reg);
+	}
+
+	if ((Options & XEMACPS_RX_ERR_DISCARD_OPTION) != 0x00000000U) {
+		Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress,
+							XEMACPS_DMACR_OFFSET);
+		Reg |= XEMACPS_DMACR_FORCEDISCERR_MASK;
+		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress,
+							 XEMACPS_DMACR_OFFSET, Reg);
+	}
+
+	if ((Options & XEMACPS_BD_EXTENDED_RX_OPTION) != 0x00000000U) {
+		Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress,
+							XEMACPS_DMACR_OFFSET);
+		Reg |= XEMACPS_DMACR_RXEXTEND_MASK;
+		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress,
+							 XEMACPS_DMACR_OFFSET, Reg);
+	}
+
+	if ((Options & XEMACPS_BD_EXTENDED_TX_OPTION) != 0x00000000U) {
+		Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress,
+							XEMACPS_DMACR_OFFSET);
+		Reg |= XEMACPS_DMACR_TXEXTEND_MASK;
+		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress,
+							 XEMACPS_DMACR_OFFSET, Reg);
 	}
 
 	/* The remaining options not handled here are managed elsewhere in the

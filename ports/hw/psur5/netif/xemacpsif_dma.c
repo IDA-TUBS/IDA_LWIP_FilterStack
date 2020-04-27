@@ -500,6 +500,10 @@ void emacps_recv_handler(void *arg)
 	u32_t regval;
 	u32_t index;
 	u32_t gigeversion;
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+	int32_t time_s;
+	int32_t time_ns;
+#endif
 
 	xemac = (struct xemac_s *)(arg);
 	xemacpsif = (xemacpsif_s *)(xemac->state);
@@ -542,6 +546,10 @@ void emacps_recv_handler(void *arg)
 			rx_bytes = XEmacPs_BdGetLength(curbdptr);
 #endif
 			pbuf_realloc(p, rx_bytes);
+
+#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+			ETH_PTP_GetBdTimestamp(&time_s, &time_ns, curbdptr);
+#endif
 
 			/* store it in the receive queue,
 			 * where it'll be processed by a different handler

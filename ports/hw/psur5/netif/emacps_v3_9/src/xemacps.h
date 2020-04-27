@@ -430,8 +430,17 @@ extern "C" {
 /**< Enable the TX checksum offload
  *   This option defaults to enabled (set) */
 
-#define XEMACPS_JUMBO_ENABLE_OPTION	0x00004000U
-#define XEMACPS_SGMII_ENABLE_OPTION	0x00008000U
+#define XEMACPS_JUMBO_ENABLE_OPTION	         0x00004000U
+#define XEMACPS_SGMII_ENABLE_OPTION	         0x00008000U
+
+#define XEMACPS_RX_ERR_DISCARD_OPTION        0x00010000U
+/**< Discard rx packets on resource errors */
+
+#define XEMACPS_BD_EXTENDED_RX_OPTION        0x00020000U
+/**< Enable extendend bd mode for RX */
+
+#define XEMACPS_BD_EXTENDED_TX_OPTION        0x00040000U
+/**< Enable extendend bd mode for TX */
 
 #define XEMACPS_DEFAULT_OPTIONS                     \
     ((u32)XEMACPS_FLOW_CONTROL_OPTION |                  \
@@ -833,8 +842,6 @@ void XEmacPs_IntrHandler(void *XEmacPsPtr);
 LONG XEmacPs_SetOptions(XEmacPs *InstancePtr, u32 Options);
 LONG XEmacPs_ClearOptions(XEmacPs *InstancePtr, u32 Options);
 u32 XEmacPs_GetOptions(XEmacPs *InstancePtr);
-
-void XEmacPs_EnableChecksumOffload(XEmacPs *InstancePtr);
 
 LONG XEmacPs_SetMacAddress(XEmacPs *InstancePtr, void *AddressPtr, u8 Index);
 LONG XEmacPs_DeleteHash(XEmacPs *InstancePtr, void *AddressPtr);
