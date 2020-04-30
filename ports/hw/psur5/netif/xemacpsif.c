@@ -382,7 +382,7 @@ static err_t low_level_init(struct netif *netif)
 	/* initialize the mac */
 	init_emacps(xemacpsif, netif);
 
-	XEmacPs_DMABLengthUpdate(xemacpsif, XEMACPS_16BYTE_BURST);
+	XEmacPs_DMABLengthUpdate(&xemacpsif->emacps, XEMACPS_16BYTE_BURST);
 
 #if defined(OS_IS_FREERTOS) && defined(__arm__) && !defined(ARMR5)
 	/* Freertos tick is 10ms by default; set period to the same */

@@ -38,6 +38,7 @@
 #include "lwip/opt.h"
 #include "ida-lwip/ida_lwip_igmp.h"
 #include "ida_lwip_virtEth.h"
+#include "ida_lwip_virtEth_master.h"
 #include "lwip/ip.h"
 #include "string.h" 	//For memset
 

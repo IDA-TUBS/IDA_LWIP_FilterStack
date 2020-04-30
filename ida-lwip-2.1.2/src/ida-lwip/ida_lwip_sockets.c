@@ -441,7 +441,9 @@ static void _ida_lwip_socketRecv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 	if(s->proxy != NULL){
 		/* Receive data for proxy socket */
 		u8_t prio = ida_lwip_get_socket_prio(s->id);
-		ida_lwip_prioQueuePut(s->proxy->prioQueue,(void*)s->id,prio);
+		/* Put the socket id as "payload" in the priority queue of the proxy socket
+		 * suppress warning with typecast to u32_t */
+		ida_lwip_prioQueuePut(s->proxy->prioQueue,(void*)(u32_t)s->id,prio);
 	} else {
 		/* Receive data for normal socket */
 		sys_sem_signal(&s->rxSem);

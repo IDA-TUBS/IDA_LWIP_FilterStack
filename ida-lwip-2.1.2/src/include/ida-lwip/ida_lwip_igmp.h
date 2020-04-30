@@ -80,5 +80,6 @@ struct igmp_group {
 /*  Prototypes */
 void   igmp_init(void);
 struct igmp_group *ida_lwip_igmp_lookfor_group(struct netif *ifp, const ip4_addr_t *addr);
+int ida_lwip_igmp_is_member(const ip4_addr_t *addr);
 
 #endif /* SRC_MODULES_LWIP_IDA_LWIP_2_1_2_SRC_INCLUDE_IDA_LWIP_IDA_LWIP_IGMP_H_ */
