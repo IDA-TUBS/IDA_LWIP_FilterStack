@@ -79,7 +79,7 @@ void ida_lwip_virtEth_master_init(void){
 		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeTxBuffers,&entry);
 	}
 
-	XIpiPsu_CfgInitialize(&IPIInstance, &XIpiPsu_ConfigTable[0], (UINTPTR) XIpiPsu_ConfigTable[0].BaseAddress);
+	XIpiPsu_CfgInitialize(&IPIInstance, &XIpiPsu_ConfigTable[IDA_LWIP_IPI_INSTANCE_ID], (UINTPTR) XIpiPsu_ConfigTable[IDA_LWIP_IPI_INSTANCE_ID].BaseAddress);
 
 	_ida_lwip_sharedMem->ready[0] = 1;
 	while(_ida_lwip_sharedMem->ready[1] == 0);;
@@ -113,7 +113,7 @@ void ida_lwip_virtEth_sendToClassic(struct pbuf* p){
 		entry.type = IDA_LWIP_MEM_MSG_TYPE_DATA;
 		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->rxBuffers, &entry);
 	}
-	XIpiPsu_TriggerIpi(&IPIInstance, XIpiPsu_ConfigTable[0].TargetList[0].Mask);
+	XIpiPsu_TriggerIpi(&IPIInstance, XIpiPsu_ConfigTable[IDA_LWIP_IPI_INSTANCE_ID].TargetList[IDA_LWIP_IPI_TARGET_ID].Mask);
 }
 
 void ida_lwip_virtEth_sendToClassicMgmt(void *mgmtData, size_t size){
@@ -130,7 +130,7 @@ void ida_lwip_virtEth_sendToClassicMgmt(void *mgmtData, size_t size){
 		entry.type = IDA_LWIP_MEM_MSG_TYPE_MGMT;
 		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->rxBuffers, &entry);
 	}
-	XIpiPsu_TriggerIpi(&IPIInstance, XIpiPsu_ConfigTable[0].TargetList[0].Mask);
+	XIpiPsu_TriggerIpi(&IPIInstance, XIpiPsu_ConfigTable[IDA_LWIP_IPI_INSTANCE_ID].TargetList[IDA_LWIP_IPI_TARGET_ID].Mask);
 }
 
 
