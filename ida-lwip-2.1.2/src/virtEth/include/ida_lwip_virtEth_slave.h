@@ -45,6 +45,10 @@
 
 #include "ida_lwip_virtEth.h"
 
+#ifndef IDA_LWIP_IPI_INSTANCE_ID
+#define IDA_LWIP_IPI_INSTANCE_ID 	0
+#endif
+
 typedef struct RX_PBUF
 {
    struct pbuf_custom p;

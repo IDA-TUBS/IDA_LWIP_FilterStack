@@ -43,6 +43,14 @@
 #include "lwip/sys.h"
 #include "ida_lwip_virtEth.h"
 
+#ifndef IDA_LWIP_IPI_INSTANCE_ID
+#define IDA_LWIP_IPI_INSTANCE_ID 	0
+#endif
+
+#ifndef IDA_LWIP_IPI_TARGET_ID
+#define IDA_LWIP_IPI_TARGET_ID		0		/* Target APU MPCore */
+#endif
+
 void ida_lwip_virtEth_master_init(void);
 void ida_lwip_virtEth_receiveFromClassic(sys_sem_t txCompleteSem);
 void ida_lwip_virtEth_sendToClassic(struct pbuf* p);

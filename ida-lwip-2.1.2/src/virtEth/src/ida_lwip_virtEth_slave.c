@@ -229,11 +229,12 @@ static err_t low_level_init(struct netif *netif)
 		}
 	}
 
-	XIpiPsu_CfgInitialize(&IPIInstance, &XIpiPsu_ConfigTable[0], XIpiPsu_ConfigTable[0].BaseAddress);
+	XIpiPsu_Config *_XIpiPsu_ConfigTable = &XIpiPsu_ConfigTable[IDA_LWIP_IPI_INSTANCE_ID];
+	XIpiPsu_CfgInitialize(&IPIInstance, _XIpiPsu_ConfigTable, _XIpiPsu_ConfigTable->BaseAddress);
 	XIpiPsu_InterruptEnable(&IPIInstance, XIPIPSU_ALL_MASK);
 	XIpiPsu_ClearInterruptStatus(&IPIInstance, XIPIPSU_ALL_MASK);
-	UCOS_IntVectSet(XIpiPsu_ConfigTable[0].IntId, 0, 0, ida_lwip_virtEth_irq_handler, DEF_NULL);
-	UCOS_IntSrcEn(XIpiPsu_ConfigTable[0].IntId);
+	UCOS_IntVectSet(_XIpiPsu_ConfigTable->IntId, 0, 0, ida_lwip_virtEth_irq_handler, DEF_NULL);
+	UCOS_IntSrcEn(_XIpiPsu_ConfigTable->IntId);
 
 	_ida_lwip_sharedMem->ready[1] = 1;
 	while(!_ida_lwip_sharedMem->ready[0]);;
