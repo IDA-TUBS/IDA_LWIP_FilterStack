@@ -458,10 +458,18 @@ void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
 void ETH_PTP_GetBdTimestamp(int32_t *time_s, int32_t *time_ns, XEmacPs_Bd *bdptr)
 {
 	struct ptptime_t timestamp;
+	int32_t curr_sec;
 	ETH_PTPTime_GetTime(&timestamp);
+	curr_sec = timestamp.tv_sec & 0x3F;
 	timestamp.tv_nsec = XEmacPs_BdGetTsNSeconds(bdptr);
 	timestamp.tv_sec &= ~0x3F;
 	timestamp.tv_sec |= XEmacPs_BdGetTsSeconds(bdptr);
+
+	/* check for difference of seconds in timestamp and buffer descriptor */
+	if(curr_sec != (timestamp.tv_sec & 0x3F)){
+		timestamp.tv_sec -= 0x40;
+	}
+
 	*time_ns = timestamp.tv_nsec;
 	*time_s = timestamp.tv_sec;
 }

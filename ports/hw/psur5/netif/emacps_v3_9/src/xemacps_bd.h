@@ -362,8 +362,8 @@ typedef u32 XEmacPs_Bd[XEMACPS_BD_NUM_WORDS];
 /**
  * Retrieve the Second timestamp from a buffer descriptor.
  *
- * The returned value is the [1:0] Bit range of the descriptor word 2
- * concatenated with the [5:2] Bit range of the descriptor word 3
+ * The returned value is the 31:30 Bit range of the descriptor word 2
+ * concatenated with the 3:0 Bit range of the descriptor word 3
  *
  * @param  BdPtr is the BD pointer to operate on
  *
@@ -376,7 +376,7 @@ typedef u32 XEmacPs_Bd[XEMACPS_BD_NUM_WORDS];
  *****************************************************************************/
 #define XEmacPs_BdGetTsSeconds(BdPtr)                   \
     (((XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD2_OFFSET) & XEMACPS_RXBUF_WORD2_S_MASK) >> XEMACPS_RXBUF_WORD2_S_OFFSET) | \
-    		(XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD3_OFFSET) & XEMACPS_RXBUF_WORD3_S_MASK))
+    		((XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD3_OFFSET) & XEMACPS_RXBUF_WORD3_S_MASK) << XEMACPS_RXBUF_WORD3_S_OFFSET))
 
 
 /*****************************************************************************/
