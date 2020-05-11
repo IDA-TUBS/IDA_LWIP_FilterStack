@@ -610,7 +610,8 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
 #define XEMACPS_RXBUF_WORD2_NS_MASK	 0x3FFFFFFFU /**< Mask for nanosecond timestamp in word 2 */
 #define XEMACPS_RXBUF_WORD2_S_MASK	 0xC0000000U /**< Mask for second [1:0] timestamp in word 2 */
 #define XEMACPS_RXBUF_WORD2_S_OFFSET 0x0000001EU /**< Seconds part has to be shifted 30 bits to the right */
-#define XEMACPS_RXBUF_WORD3_S_MASK	 0x0000003CU /**< Mask for second [5:2] timestamp in word 3 */
+#define XEMACPS_RXBUF_WORD3_S_OFFSET 0x00000002U /**< Seconds part has to be shifted 2 bits to the left */
+#define XEMACPS_RXBUF_WORD3_S_MASK	 0x0000000FU /**< Mask for second [5:2] timestamp in word 3 */
 /*
  * @}
  */
