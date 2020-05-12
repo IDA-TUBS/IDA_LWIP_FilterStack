@@ -286,8 +286,14 @@ etharp_update_arp_entry(struct netif *netif, const ip4_addr_t *ipaddr, struct et
   } else if (arp_table[i].state == ETHARP_STATE_STATIC) {
     /* found entry is a static type, don't overwrite it */
     return ERR_VAL;
-  } else
+  }
 #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
+  /* record network interface */
+  arp_table[i].netif = netif;
+
+  LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_update_arp_entry: updating stable entry %"S16_F"\n", i));
+  /* update address */
+  SMEMCPY(&arp_table[i].ethaddr, ethaddr, ETH_HWADDR_LEN);
   return ERR_OK;
 }
 
