@@ -188,6 +188,7 @@ static void _ida_filter_process_udp(IDA_LWIP_TX_REQ* txReq){
 	tx_pbuf->p.custom_free_function = _ida_lwip_tx_pbuf_free;
 	p = pbuf_alloced_custom(PBUF_TRANSPORT,0,PBUF_REF,&tx_pbuf->p,NULL,1500);
 	if ( p == NULL){
+		LWIP_MEMPOOL_FREE(TX_PBUF_POOL,tx_pbuf);
 		txReq->err = ERR_MEM;
 		sys_sem_signal(&txReq->txCompleteSem);
 		return;
@@ -203,8 +204,10 @@ static void _ida_filter_process_udp(IDA_LWIP_TX_REQ* txReq){
 	} else {
 		txReq->err = udp_sendto_if(sock->pcb, p, &sock->pcb->remote_ip, sock->pcb->remote_port, netif_local);
 	}
-	if(txReq->err != ERR_OK)
+	if(txReq->err != ERR_OK){
+		pbuf_free(p);
 		sys_sem_signal(&txReq->txCompleteSem);
+	}
 }
 
 /*

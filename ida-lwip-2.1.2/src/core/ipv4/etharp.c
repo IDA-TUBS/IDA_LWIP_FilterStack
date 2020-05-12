@@ -217,7 +217,25 @@ etharp_find_entry(const ip4_addr_t *ipaddr, u8_t flags, struct netif *netif)
       }
     }
   }
-  return ERR_MEM;
+  if (empty < ARP_TABLE_SIZE) {
+    i = empty;
+    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting empty entry %d\n", (int)i));
+  } else {
+    return ERR_MEM;
+  }
+  LWIP_ASSERT("i < ARP_TABLE_SIZE", i < ARP_TABLE_SIZE);
+  LWIP_ASSERT("arp_table[i].state == ETHARP_STATE_EMPTY",
+              arp_table[i].state == ETHARP_STATE_EMPTY);
+
+  /* IP address given? */
+  if (ipaddr != NULL) {
+    /* set IP address */
+    ip4_addr_copy(arp_table[i].ipaddr, *ipaddr);
+  }
+#if ETHARP_TABLE_MATCH_NETIF
+  arp_table[i].netif = netif;
+#endif /* ETHARP_TABLE_MATCH_NETIF */
+  return (s16_t)i;
 }
 
 /**
