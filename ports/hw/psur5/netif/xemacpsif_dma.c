@@ -63,6 +63,12 @@
 #include "netif/xemacps_ieee1588.h"
 #endif
 
+#ifdef EMACPS_ENABLE_LOSSY_TX
+#ifndef EMACPS_LOSSY_TX_THRESHOLD
+#define EMACPS_LOSSY_TX_THRESHOLD	RAND_MAX/1000
+#endif
+#endif
+
 #define INTC_BASE_ADDR		XPAR_SCUGIC_0_CPU_BASEADDR
 #define INTC_DIST_BASE_ADDR	XPAR_SCUGIC_0_DIST_BASEADDR
 
@@ -318,6 +324,15 @@ XStatus emacps_sgsend(xemacpsif_s *xemacpsif, struct pbuf *p)
 
 	lev = mfcpsr();
 	mtcpsr(lev | 0x000000C0);
+
+#ifdef EMACPS_ENABLE_LOSSY_TX
+	u32 Reg = XEmacPs_ReadReg(xemacpsif->emacps.Config.BaseAddress,XEMACPS_DMACR_OFFSET);
+	if(rand() < EMACPS_LOSSY_TX_THRESHOLD)
+		Reg &= (u32)(~XEMACPS_DMACR_TCPCKSUM_MASK);
+	else
+		Reg |= XEMACPS_DMACR_TCPCKSUM_MASK;
+	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress,XEMACPS_DMACR_OFFSET, Reg);
+#endif
 
 	txring = &(XEmacPs_GetTxRing(&xemacpsif->emacps));
 
