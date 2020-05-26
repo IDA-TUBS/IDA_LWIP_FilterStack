@@ -77,7 +77,7 @@ void ida_filter_init(struct netif *netif){
 
 	/*Initialization of mbox for dummy task*/
 	_ida_lwip_classicQueue = ida_lwip_queue_alloc(IDA_LWIP_QUEUE_SIZE);
-	ida_lwip_queue_set_trigger(_ida_lwip_classicQueue, 4);
+	ida_lwip_queue_set_trigger(_ida_lwip_classicQueue, IDA_LWIP_CLASSIC_QUEUE_TRIGGER);
 	sys_sem_new(&_ida_lwip_classicSem, 0);
 
 #if LWIP_PTP == 1
