@@ -1150,6 +1150,54 @@ ida_lwip_sendto(int s, const void *data, size_t size, int flags,
 	}
 }
 
+/*
+ * Function to enqueue packet into tx queue
+ * --> queue will be processed by filter_tx_thread
+ *
+ * @param s: id of socket
+ * @param data: pointer to data
+ * @param size: size of data
+ * @param flags: curently unused
+ * @param to: sockaddr to send to
+ * @param tolen: currenly unused
+ * */
+ssize_t
+ida_lwip_sendmsg(int s, const struct msghdr *message, int flags)
+//(int s, struct iovec *iov, size_t vector_len, int flags,const struct sockaddr *to, socklen_t tolen)
+{
+	if(_IDA_LWIP_IS_SOCKET(s)){
+		/* Socket is normal socket */
+		struct ida_lwip_sock *sock;
+
+		/* Fill message with data and info */
+		IDA_LWIP_TX_REQ txReq;
+		txReq.type = UDP_ARRAY;
+		txReq.data = message->msg_iov;
+		txReq.size = message->msg_iovlen;
+		txReq.to = message->msg_name;
+		txReq.socket = s;
+		txReq.err = ERR_OK;
+
+		sock = get_socket(s);
+		if (!sock) {
+			return -1;
+		}
+
+		txReq.txCompleteSem = sock->txSem;
+
+		u8_t prio = ida_lwip_get_socket_prio(sock->id);
+		/* Enqueue message into tx queue */
+		if(ida_filter_enqueue_pkt((void*)&txReq, prio, 0)!= ERR_OK)
+			sys_sem_signal(&txReq.txCompleteSem);
+		/* Wait for confirmation that packet was handed over to driver */
+		sys_arch_sem_wait(&txReq.txCompleteSem, 0);
+
+		return txReq.err == ERR_OK ? message->msg_iovlen : -1;
+	} else {
+	  return -1;
+	}
+}
+
 
 /*
  * Function to request to close socket

@@ -210,6 +210,94 @@ static void _ida_filter_process_udp(IDA_LWIP_TX_REQ* txReq){
 	}
 }
 
+static void _ida_filter_process_udp_array(IDA_LWIP_TX_REQ* txReq){
+	struct ida_lwip_sock *sock;
+	struct sockaddr_in *to;
+	ip_addr_t addr;
+	u16_t remote_port;
+	IDA_LWIP_FILTER_PBUF* tx_pbuf;
+	struct pbuf* p, *chain_buf;
+	struct iovec *iov;
+
+	sock = get_socket(txReq->socket);
+	if (sock == NULL) {
+		txReq->err = ERR_VAL;
+		sys_sem_signal(&txReq->txCompleteSem);
+		return;
+	}
+	to = (struct sockaddr_in *)txReq->to;
+
+	if (txReq->err != ERR_OK){
+		sys_sem_signal(&txReq->txCompleteSem);
+		return;
+	}
+
+	tx_pbuf = (IDA_LWIP_FILTER_PBUF*)LWIP_MEMPOOL_ALLOC(TX_PBUF_POOL);
+	if(tx_pbuf == NULL){
+		txReq->err = ERR_MEM;
+		sys_sem_signal(&txReq->txCompleteSem);
+		return;
+	}
+	tx_pbuf->tx_complete_sem = txReq->txCompleteSem;
+	tx_pbuf->p.custom_free_function = _ida_lwip_tx_pbuf_free;
+
+	chain_buf = pbuf_alloced_custom(PBUF_TRANSPORT,0,PBUF_REF,&tx_pbuf->p,NULL,1500);
+	if (chain_buf == NULL){
+		txReq->err = ERR_MEM;
+		sys_sem_signal(&txReq->txCompleteSem);
+		return;
+	}
+
+	iov = (struct iovec *) txReq->data;
+	if (iov[0].iov_len > 0xFFFF) {
+		/* overflow */
+		sys_sem_signal(&txReq->txCompleteSem);
+		return;
+	}
+	chain_buf->payload = iov[0].iov_base;
+	chain_buf->len = chain_buf->tot_len = (u16_t)iov[0].iov_len;
+
+	for (int i = 1; i < txReq->size; i++) {
+		struct pbuf *p_i;
+		p_i = pbuf_alloc(PBUF_TRANSPORT, 0, PBUF_REF);
+
+		if (p_i == NULL) {
+			txReq->err = ERR_MEM;
+			sys_sem_signal(&txReq->txCompleteSem);
+			return;
+		}
+		if (iov[i].iov_len > 0xFFFF) {
+			/* overflow */
+			sys_sem_signal(&txReq->txCompleteSem);
+			return;
+		}
+		p_i->payload = iov[i].iov_base;
+		p_i->len = p_i->tot_len = (u16_t)iov[i].iov_len;
+
+		if (chain_buf->tot_len + p_i->len > 0xffff) {
+		  /* overflow */
+		  pbuf_free(p_i);
+		  sys_sem_signal(&txReq->txCompleteSem);
+		  return;
+		}
+//		pbuf_cat(chain_buf, p_i); //pbuf_chain
+		pbuf_chain(chain_buf, p_i);
+
+	}
+
+	p = chain_buf;
+	p->ethPrio = ida_lwip_get_socket_prio(sock->id);
+	if (to) {
+		addr.addr = to->sin_addr.s_addr;
+		remote_port = lwip_ntohs(to->sin_port);
+		txReq->err = udp_sendto_if(sock->pcb, p, &addr, remote_port, netif_local);
+	} else {
+		txReq->err = udp_sendto_if(sock->pcb, p, &sock->pcb->remote_ip, sock->pcb->remote_port, netif_local);
+	}
+	if(txReq->err != ERR_OK)
+		sys_sem_signal(&txReq->txCompleteSem);
+}
+
 /*
  * thread to process TX Requests
  *
@@ -226,6 +314,8 @@ static void _ida_filter_tx_thread(void* p_arg){
 		if(txReq != NULL){
 			if(txReq->type == UDP){
 				_ida_filter_process_udp(txReq);
+			} else if (txReq->type == UDP_ARRAY){
+				_ida_filter_process_udp_array(txReq);
 			} else if(txReq->type == RAW){
 				struct pbuf * p;
 				p = pbuf_alloc(PBUF_TRANSPORT, 0, PBUF_REF);

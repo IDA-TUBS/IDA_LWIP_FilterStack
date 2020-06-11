@@ -595,7 +595,7 @@ int lwip_inet_pton(int af, const char *src, void *dst);
 /** @ingroup socket */
 #define send(s,dataptr,size,flags)                ida_lwip_sendto(s, data, size, flags, NULL, 0)
 /** @ingroup socket */
-#define sendmsg(s,message,flags)                  (-1)
+#define sendmsg(s,message,flags)                  ida_lwip_sendmsg(s,message,flags)
 /** @ingroup socket */
 #define sendto(s,dataptr,size,flags,to,tolen)     ida_lwip_sendto(s,dataptr,size,flags,to,tolen)
 /** @ingroup socket */

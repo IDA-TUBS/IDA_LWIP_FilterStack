@@ -66,7 +66,7 @@ typedef struct IDA_LWIP_FILTER_PBUF
 } IDA_LWIP_FILTER_PBUF;
 
 typedef struct{
-	enum {UDP, RAW} type;
+	enum {UDP, RAW, UDP_ARRAY} type;
 	void *data;
 	size_t size;
 	int socket;
