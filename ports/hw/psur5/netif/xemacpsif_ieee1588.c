@@ -20,8 +20,6 @@
 
 #if XPAR_EMACPS_TSU_ENABLE == 1
 
-// Includes for use with ptpd
-#include "ptpd.h"
 /*
  ************************************************************************************************
  *                                          Defines
@@ -41,32 +39,12 @@
  ************************************************************************************************
  */
 
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
-/*
- * PTP Timestamp from Rx ptp capture register
- */
-uint32_t Ptp_RxTimeStampSeconds;
-uint32_t Ptp_RxTimeStampNSeconds;
-
-/*
- * PTP Timestamp from Tx ptp capture register
- */
-uint32_t Ptp_TxTimeStampSeconds;
-uint32_t Ptp_TxTimeStampNSeconds;
-
-/*
- * Semaphore to inform the ptp interface about
- * new captures
- */
-sys_sem_t sem_tx_ptp_available;
-#endif
 /*
  * Initial TSU Increment
  */
 XEmacPs_Tsu_incr Ptp_TSU_base_incr;
-
-
-extern PtpClock ptpClock;
+static struct ptptime_t ptp_tx_timestamp;
+static struct ptptime_t ptp_rx_timestamp;
 
 /*****************************************************************************/
 /**
@@ -111,19 +89,6 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 	/* Enable One Step Sync Mode */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_NWCTRL_OFFSET, regVal | XEMACPS_NWCTRL_OSSM_MASK);
 #endif
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
-	/*Enable PTP Sync Received Interrupt */
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPSRX_MASK);
-
-	/*Enable PTP Delay_req Received Interrupt */
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPDRRX_MASK);
-
-	/* Enable PTP Sync Transmitted Interrupt */
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPPSRX_MASK);
-
-	/*Enable PTP Delay_req Transmitted Interrupt */
-	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTPDRTX_MASK);
-#endif
 	/* Enable PTP TSU Compare Interrupt */
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTP_CMP_MASK);
 
@@ -132,108 +97,13 @@ void XEmacPs_initPtp(xemacpsif_s *xemacpsif) {
 	XEmacPs_WriteReg(xemacpsif->emacps.Config.BaseAddress, XEMACPS_IER_OFFSET, XEMACPS_IXR_PTP_PPS_MASK);
 #endif
 
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
-	XEmacPs_SetOptions(&xemacpsif->emacps, XEMACPS_BD_EXTENDED_RX_OPTION | XEMACPS_BD_EXTENDED_TX_OPTION);
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
+	XEmacPs_SetOptions(&xemacpsif->emacps, XEMACPS_BD_EXTENDED_RX_OPTION | XEMACPS_BD_EXTENDED_TX_OPTION
+			| XEMACPS_BD_TS_EN_PTPEV_TX_OPTION | XEMACPS_BD_TS_EN_PTPEV_RX_OPTION);
 #endif
 
 	XEmacPs_InitTsu();
 }
-
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
-/*****************************************************************************/
-/**
- * Reads tsu_ptp_rx_sec and tsu_ptp_rx_nsec Registers from GEM3.
- * An Interrupt is raised when an PTP Sync Frame Event Crosses the MII Boundaries.
- * The ISR calls this function to store the received timestamps in a ts buffer.
- *
- * @param	None.
- *
- * @return	None.
- *
- * @note	For use with ptp slave.
- *
- ******************************************************************************/
-void XEmacPs_GetRxTimestamp(void) {
-	Ptp_RxTimeStampSeconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_SEC_OFFSET);
-	Ptp_RxTimeStampNSeconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_NSEC_OFFSET);
-}
-
-
-/*****************************************************************************/
-/**
- * Reads tsu_ptp_rx_sec and tsu_ptp_rx_nsec Registers from GEM3.
- * An Interrupt is raised when an PTP Delay Req is received
- * and crosses the MII Boundaries.
- * The ISR calls this function to store the received timestamps in the ptpClock instance.
- * It will be processed in ptpd handleDelayReq()
- * TODO: Can we use this TS, oder do we have to normalize it?
- *
- * @param	None.
- *
- * @return	None.
- *
- * @note	For use with ptp master.
- *
- ******************************************************************************/
-void XEmacPs_GetDelayReqRxTimestamp(void) {
-	TimeInternal ptpTimestamp;
-	ptpTimestamp.seconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_SEC_OFFSET);
-	ptpTimestamp.nanoseconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_RX_NSEC_OFFSET);
-
-
-	ptpClock.timestamp_delayReqRecieve = ptpTimestamp;
-}
-
-
-/*****************************************************************************/
-/**
- * Reads tsu_ptp_rx_sec and tsu_ptp_rx_nsec Registers from GEM3.
- * An Interrupt is raised when an PTP Delay Req is transmitted and
- * crosses the MII Boundaries.
- * The ISR calls this function to store the received timestamps in the ptpClock instance.
- * It will be processed in ptpd handleDelayReq()
- * TODO: Can we use this TS, oder do we have to normalize it?
- *
- * @param	None.
- *
- * @return	None.
- *
- * @note	For use with ptp slave.
- *
- ******************************************************************************/
-void XEmacPs_GetDelayReqTxTimestamp(void) {
-	TimeInternal ptpTimestamp;
-
-	ptpTimestamp.seconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_SEC_OFFSET);
-	ptpTimestamp.nanoseconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_NSEC_OFFSET);
-
-	if (ptpTimestamp.seconds != 0) {
-		addTime(&ptpTimestamp, &ptpTimestamp, &ptpClock.outboundLatency);
-		ptpClock.timestamp_delayReqSend = ptpTimestamp;
-	}
-
-}
-
-
-/*****************************************************************************/
-/**
-*	Read the PTP Tx Capture register and write them to the Tx Timestamp buffer
-*
-* @param N/A
-*
-* @return
-*
-* @note For use with ptp master
-*
-******************************************************************************/
-void XEmacPs_GetTxTimestamp(void) {
-
-	Ptp_TxTimeStampSeconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_SEC_OFFSET);
-	Ptp_TxTimeStampNSeconds = XEmacPs_ReadReg(XPAR_XEMACPS_BASEADDR, XEMACPS_PTP_TSU_TX_NSEC_OFFSET);
-	sys_sem_signal(&sem_tx_ptp_available);
-
-}
-#endif
 
 /*****************************************************************************/
 /**
@@ -419,32 +289,7 @@ XEmacPs_Tsu_incr XEmacPs_ReadTsuIncr(void)
 	return incr;
 }
 
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
-/*****************************************************************************/
-/**
-* Get the current PTP Timestamp from the capture register
-*
-* @param time_s nanoseconds portion from timestamp
-* @param time_ns subnanoseconds portion
-* @param receive is the direction, true for receive
-*
-*
-******************************************************************************/
-void ETH_PTP_GetTimestamp(int32_t *time_s, int32_t *time_ns, BOOLEAN receive)
-{
-	if(!receive){
-		sys_sem_wait(&sem_tx_ptp_available);
-		*time_s = Ptp_TxTimeStampSeconds;
-		*time_ns = Ptp_TxTimeStampNSeconds;
-	} else {
-		*time_s = Ptp_RxTimeStampSeconds;
-		*time_ns = Ptp_RxTimeStampNSeconds;
-
-	}
-}
-#endif
-
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
 /*****************************************************************************/
 /**
 * Get the current PTP Timestamp from the capture register
@@ -472,6 +317,44 @@ void ETH_PTP_GetBdTimestamp(int32_t *time_s, int32_t *time_ns, XEmacPs_Bd *bdptr
 
 	*time_ns = timestamp.tv_nsec;
 	*time_s = timestamp.tv_sec;
+}
+
+/*****************************************************************************/
+/**
+* Get the PTP Timestamp from a sent/received buffer descriptor and save it to global variable
+*
+* @param bdptr is the buffer descriptor
+* @param receive is the message direction
+*
+*
+******************************************************************************/
+void ETH_PTP_SaveBdTimestamp(XEmacPs_Bd *bdptr, BOOLEAN receive)
+{
+	if(receive) {
+		ETH_PTP_GetBdTimestamp(&ptp_rx_timestamp.tv_sec, &ptp_rx_timestamp.tv_nsec, bdptr);
+	} else {
+		ETH_PTP_GetBdTimestamp(&ptp_tx_timestamp.tv_sec, &ptp_tx_timestamp.tv_nsec, bdptr);
+	}
+}
+
+/*****************************************************************************/
+/**
+* Get the PTP Timestamp from global variable
+*
+* @param ts_sec is the second portion of the timestamp to be read
+* @param ts_nsec ist the nanosecond portion of the timestamp to be read
+*
+*
+******************************************************************************/
+void ETH_PTP_GetTimestamp(int32_t* ts_sec, int32_t* ts_nsec, BOOLEAN receive)
+{
+	if(receive) {
+		*ts_sec = ptp_rx_timestamp.tv_sec;
+		*ts_nsec = ptp_rx_timestamp.tv_nsec;
+	} else {
+		*ts_sec = ptp_tx_timestamp.tv_sec;
+		*ts_nsec = ptp_tx_timestamp.tv_nsec;
+	}
 }
 #endif
 

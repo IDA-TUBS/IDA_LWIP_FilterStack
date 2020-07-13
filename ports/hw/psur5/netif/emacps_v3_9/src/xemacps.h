@@ -442,6 +442,12 @@ extern "C" {
 #define XEMACPS_BD_EXTENDED_TX_OPTION        0x00040000U
 /**< Enable extendend bd mode for TX */
 
+#define XEMACPS_BD_TS_EN_PTPEV_TX_OPTION     0x00080000U
+/**< Enable TX bd timestamp insertion for PTP event frames only */
+
+#define XEMACPS_BD_TS_EN_PTPEV_RX_OPTION     0x00100000U
+/**< Enable RX bd timestamp insertion for PTP event frames only */
+
 #define XEMACPS_DEFAULT_OPTIONS                     \
     ((u32)XEMACPS_FLOW_CONTROL_OPTION |                  \
      (u32)XEMACPS_FCS_INSERT_OPTION |                    \

@@ -307,6 +307,8 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
 							reg */
 #define XEMACPS_MSBBUF_TXQBASE_OFFSET  0x000004C8U /**< MSB Buffer TX Q Base
 							reg */
+#define XEMACPS_TX_BD_CTRL_OFFSET      0x000004CCU /**< TX BD control reg */
+#define XEMACPS_RX_BD_CTRL_OFFSET      0x000004D0U /**< RX BD control reg */
 #define XEMACPS_MSBBUF_RXQBASE_OFFSET  0x000004D4U /**< MSB Buffer RX Q Base
 							reg */
 #define XEMACPS_INTQ1_IER_OFFSET     0x00000600U /**< Interrupt Q1 Enable
@@ -459,6 +461,14 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
 #define XEMACPS_RXSR_ERROR_MASK      ((u32)XEMACPS_RXSR_HRESPNOK_MASK | \
                                        (u32)XEMACPS_RXSR_RXOVR_MASK | \
                                        (u32)XEMACPS_RXSR_BUFFNA_MASK)
+/*@}*/
+
+/**
+ * @name TX/RX bd control register bit definitions
+ * @{
+ */
+#define XEMACPS_BD_CTRL_MASK    0x00000010U /**< Enable TX/RX bd timestamp insertion for PTP event frames only */
+
 /*@}*/
 
 /**

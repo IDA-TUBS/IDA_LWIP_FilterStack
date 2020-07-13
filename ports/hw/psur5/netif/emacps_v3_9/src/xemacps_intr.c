@@ -210,47 +210,6 @@ void XEmacPs_IntrHandler(void *XEmacPsPtr)
 		}
 	}
 #endif
-
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 0
-	/* PTP Sync Frame Received */
-	if ((RegISR & XEMACPS_IXR_PTPSRX_MASK) != 0x00000000U) {
-		/* Clear RX status register RX complete indication but preserve
-		 * error bits if there is any */
-		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_RXSR_OFFSET,
-				((u32)XEMACPS_RXSR_FRAMERX_MASK | (u32)XEMACPS_RXSR_BUFFNA_MASK));
-		XEmacPs_GetRxTimestamp();
-	}
-
-
-	/* PTP Delay_Req Frame Received */
-	if ((RegISR & XEMACPS_IXR_PTPDRRX_MASK) != 0x00000000U) {
-		/* Clear RX status register RX complete indication but preserve
-		 * error bits if there is any */
-		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_RXSR_OFFSET,
-				((u32)XEMACPS_RXSR_FRAMERX_MASK | (u32)XEMACPS_RXSR_BUFFNA_MASK));
-		XEmacPs_GetDelayReqRxTimestamp();
-	}
-
-
-	/* PTP Delay_Req Transmitted Received */
-	if ((RegISR & XEMACPS_IXR_PTPDRTX_MASK) != 0x00000000U) {
-		/* Clear RX status register RX complete indication but preserve
-		 * error bits if there is any */
-		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_TXSR_OFFSET,
-				((u32)XEMACPS_TXSR_TXCOMPL_MASK | (u32)XEMACPS_TXSR_USEDREAD_MASK));
-		XEmacPs_GetDelayReqTxTimestamp();
-	}
-
-
-	/* PTP Sync Frame Transmitted */
-	if ((RegISR & XEMACPS_IXR_PTPSTX_MASK) != 0x00000000U) {
-		/* Clear RX status register RX complete indication but preserve
-		 * error bits if there is any */
-		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress, XEMACPS_TXSR_OFFSET,
-				((u32)XEMACPS_TXSR_TXCOMPL_MASK | (u32)XEMACPS_TXSR_USEDREAD_MASK));
-		XEmacPs_GetTxTimestamp();
-	}
-#endif
 #endif
 
 	/* Receive complete interrupt */

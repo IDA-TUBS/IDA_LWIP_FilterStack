@@ -96,7 +96,7 @@ extern "C" {
 #else
 /* Minimum BD alignment */
 #define XEMACPS_DMABD_MINIMUM_ALIGNMENT  4U
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
 #define XEMACPS_BD_NUM_WORDS 4U
 #else
 #define XEMACPS_BD_NUM_WORDS 2U

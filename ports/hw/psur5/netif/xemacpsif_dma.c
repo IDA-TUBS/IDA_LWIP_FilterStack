@@ -59,7 +59,7 @@
 #include "ucos_int.h"
 #endif
 
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
 #include "netif/xemacps_ieee1588.h"
 #endif
 
@@ -166,6 +166,12 @@ long xInsideISR = 0;
 #define XEMACPS_BD_TO_INDEX(ringptr, bdptr)				\
 	(((UINTPTR)bdptr - (UINTPTR)(ringptr)->BaseBdAddr) / (ringptr)->Separation)
 
+/* mask for TX PTP event frames */
+#define XEMACPS_BD_TX_PTP_EVENT_MASK	0x800000U
+
+/* mask for RX PTP event frames */
+#define XEMACPS_BD_RX_PTP_EVENT_MASK	0x4U
+
 
 s32_t is_tx_space_available(xemacpsif_s *emac)
 {
@@ -260,9 +266,16 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 		curbdpntr = txbdset;
 		while (n_pbufs_freed > 0) {
 			bdindex = XEMACPS_BD_TO_INDEX(txring, curbdpntr);
+
 			temp = (u32 *)curbdpntr;
 			*temp = 0;
 			temp++;
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
+			/* look for PTP event packets and save it's time stamp */
+			if(*temp & XEMACPS_BD_TX_PTP_EVENT_MASK) {
+				ETH_PTP_SaveBdTimestamp(curbdpntr, FALSE);
+			}
+#endif
 			if (bdindex == (XLWIP_CONFIG_N_TX_DESC - 1)) {
 				*temp = 0xC0000000;
 			} else {
@@ -519,7 +532,7 @@ void emacps_recv_handler(void *arg)
 	u32_t regval;
 	u32_t index;
 	u32_t gigeversion;
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
 	int32_t time_s;
 	int32_t time_ns;
 #endif
@@ -566,8 +579,17 @@ void emacps_recv_handler(void *arg)
 #endif
 			pbuf_realloc(p, rx_bytes);
 
-#if XPAR_EMACPS_TSU_PBUF_TIMESTAMPS == 1 && LWIP_PTP
-			ETH_PTP_GetBdTimestamp(&p->ts_sec, &p->ts_nsec, curbdptr);
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1 && LWIP_PTP
+			u32* temp = (u32*)curbdptr;
+			if(*temp & XEMACPS_BD_RX_PTP_EVENT_MASK) {
+				ETH_PTP_SaveBdTimestamp(curbdptr, TRUE);
+#if LWIP_PBUF_TIMESTAMP == 1
+				ETH_PTP_GetBdTimestamp(&p->ts_sec, &p->ts_nsec, curbdptr);
+#else
+				p->ts_sec = 0;
+				p->ts_nsec = 0;
+#endif
+			}
 #endif
 
 			/* store it in the receive queue,

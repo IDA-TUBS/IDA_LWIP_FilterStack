@@ -610,6 +610,24 @@ LONG XEmacPs_SetOptions(XEmacPs *InstancePtr, u32 Options)
 							 XEMACPS_DMACR_OFFSET, Reg);
 	}
 
+	/* Enable TX bd timestamp insertion for event frames only */
+	if ((Options & XEMACPS_BD_TS_EN_PTPEV_TX_OPTION) != 0x00000000U) {
+		Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress,
+							XEMACPS_TX_BD_CTRL_OFFSET);
+		Reg |= XEMACPS_BD_CTRL_MASK;
+		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress,
+							XEMACPS_TX_BD_CTRL_OFFSET, Reg);
+	}
+
+	/* Enable RX bd timestamp insertion for event frames only */
+	if ((Options & XEMACPS_BD_TS_EN_PTPEV_RX_OPTION) != 0x00000000U) {
+		Reg = XEmacPs_ReadReg(InstancePtr->Config.BaseAddress,
+							XEMACPS_RX_BD_CTRL_OFFSET);
+		Reg |= XEMACPS_BD_CTRL_MASK;
+		XEmacPs_WriteReg(InstancePtr->Config.BaseAddress,
+							XEMACPS_RX_BD_CTRL_OFFSET, Reg);
+	}
+
 	/* The remaining options not handled here are managed elsewhere in the
 	 * driver. No register modifications are needed at this time. Reflecting
 	 * the option in InstancePtr->Options is good enough for now.
