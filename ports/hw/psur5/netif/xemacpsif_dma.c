@@ -579,15 +579,12 @@ void emacps_recv_handler(void *arg)
 #endif
 			pbuf_realloc(p, rx_bytes);
 
-#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1 && LWIP_PTP
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
 			u32* temp = (u32*)curbdptr;
 			if(*temp & XEMACPS_BD_RX_PTP_EVENT_MASK) {
 				ETH_PTP_SaveBdTimestamp(curbdptr, TRUE);
 #if LWIP_PBUF_TIMESTAMP == 1
 				ETH_PTP_GetBdTimestamp(&p->ts_sec, &p->ts_nsec, curbdptr);
-#else
-				p->ts_sec = 0;
-				p->ts_nsec = 0;
 #endif
 			}
 #endif

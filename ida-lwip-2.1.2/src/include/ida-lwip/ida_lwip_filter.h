@@ -81,10 +81,8 @@ ssize_t ida_lwip_send_raw(void *data, size_t size, sys_sem_t *completeSem);
 void ida_filter_init(struct netif *netif);
 void ida_filter_init_classicAdapter(void);
 
-#if LWIP_PTP == 1
 struct pbuf* ida_filter_receivePtp(u32_t timeout);
 int ida_filter_enqueu_ptp_rx(struct pbuf *p);
-#endif
 
 
 #endif /* _IDA_LWIP_IDA_LWIP_FILTER_H_ */

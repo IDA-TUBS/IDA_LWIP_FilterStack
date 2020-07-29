@@ -55,10 +55,8 @@ static IDA_LWIP_PRIO_QUEUE *_ida_lwip_outputQueue;
 static IDA_LWIP_QUEUE *_ida_lwip_classicQueue;
 static sys_sem_t	_ida_lwip_classicSem;
 
-#if LWIP_PTP == 1
 static IDA_LWIP_QUEUE *_ida_lwip_ptpInputQueue = NULL;
 static sys_sem_t	_ida_lwip_ptpInputSem = NULL;
-#endif
 
 static void _ida_filter_thread(void* p_arg);
 static void _ida_filter_tx_thread(void* p_arg);
@@ -80,10 +78,8 @@ void ida_filter_init(struct netif *netif){
 	ida_lwip_queue_set_trigger(_ida_lwip_classicQueue, IDA_LWIP_CLASSIC_QUEUE_TRIGGER);
 	sys_sem_new(&_ida_lwip_classicSem, 0);
 
-#if LWIP_PTP == 1
 	sys_sem_new(&_ida_lwip_ptpInputSem, 0);
 	_ida_lwip_ptpInputQueue = ida_lwip_queue_alloc(4);
-#endif
 
 	/* Initialize tx pbufs */
 	LWIP_MEMPOOL_INIT(TX_PBUF_POOL);
@@ -397,7 +393,6 @@ static void _ida_filter_classicAdapter(void* p_arg){
 	}
 }
 
-#if LWIP_PTP == 1
 /**
  * Read packet from ptp queue
  * @param u32_t timeout: Timeout for waiting
@@ -419,4 +414,3 @@ int ida_filter_enqueu_ptp_rx(struct pbuf *p){
 		return -1;
 	}
 }
-#endif
