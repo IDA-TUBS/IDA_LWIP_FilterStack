@@ -13,6 +13,7 @@ The folder-structure is as follows
   * lwip-2.1.2: The "classic" LwIP
   * ports/os: OS ports, currently for MicroC-OS 2 and Unix
   * ports/hw: Ethernet Ports, currently for zynq7000 (deprecated), Zynq Ultrascale (maintained) and STM32F7 (deprecated)
+  * cfg: Examples for the lwipopts.h config file
 
 The following contains the README and License Files from LwIP and IDA-LwIP
 
