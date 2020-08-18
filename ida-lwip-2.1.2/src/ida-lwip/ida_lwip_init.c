@@ -43,7 +43,10 @@
 #include "ida-lwip/ida_lwip_filter.h"
 #include "ida-lwip/ida_lwip_queue.h"
 #include "ida-lwip/ida_lwip_prio_queue.h"
+#include "ida_lwip_virtEth.h"
 #include "lwip/sockets.h"
+
+#include "xil_mpu.h"
 
 #ifndef IDA_LWIP_MEMORY_REGION_BASE
 #error "Memory Region base for lwip data not defined"
@@ -54,12 +57,30 @@
 #endif
 
 
+static XMpu_Config _mpuconfig;
+
+static void _ida_lwip_init_mpu(INTPTR addr, u64 size, u32 attrib){
+	int i = 0;
+	Xil_GetMPUConfig(_mpuconfig);
+	for(i = 0; i < MAX_POSSIBLE_MPU_REGS; i++){
+		if(_mpuconfig[i].BaseAddress == addr && _mpuconfig[i].Size == size && _mpuconfig[i].RegionStatus == MPU_REG_ENABLED){
+			/* Found the exact mpu region we can modify */
+			Xil_DisableMPURegionByRegNum(i);
+			Xil_SetMPURegionByRegNum(i, addr, size, attrib);
+			return;
+		}
+	}
+	/* Region not exactly matched, add new one */
+	Xil_SetMPURegion(addr, size, attrib);
+}
+
 /*
  * function to initialize all modules
  *
  * */
 void ida_lwip_init(struct netif *netif){
-	Xil_SetMPURegion(IDA_LWIP_MEMORY_REGION_BASE, IDA_LWIP_MEMORY_REGION_SIZE, NORM_SHARED_NCACHE | PRIV_RW_USER_RW);
+	_ida_lwip_init_mpu(IDA_LWIP_MEMORY_REGION_BASE, IDA_LWIP_MEMORY_REGION_SIZE, NORM_SHARED_NCACHE | PRIV_RW_USER_RW);
+	_ida_lwip_init_mpu(IDA_LWIP_VIRT_ETH_MEM_BASE, IDA_LWIP_VIRT_ETH_MEM_SIZE, NORM_SHARED_NCACHE | PRIV_RW_USER_RW);
 
 	lwip_init();
 
