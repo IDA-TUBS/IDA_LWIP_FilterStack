@@ -25,7 +25,7 @@
  *                                          Defines
  ************************************************************************************************
  */
-#if defined (ARMR5)
+#if defined (ARMR5) || defined(__aarch64__)
 #define XPAR_XEMACPS_BASEADDR XPAR_PSU_ETHERNET_3_BASEADDR
 #define ENET_TSU_CLK_FREQ_HZ XPAR_PSU_ETHERNET_3_ENET_TSU_CLK_FREQ_HZ
 #else
