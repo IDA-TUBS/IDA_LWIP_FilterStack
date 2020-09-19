@@ -92,7 +92,11 @@ extern "C" {
 #ifdef __aarch64__
 /* Minimum BD alignment */
 #define XEMACPS_DMABD_MINIMUM_ALIGNMENT  64U
+#if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
+#define XEMACPS_BD_NUM_WORDS 6U
+#else
 #define XEMACPS_BD_NUM_WORDS 4U
+#endif
 #else
 /* Minimum BD alignment */
 #define XEMACPS_DMABD_MINIMUM_ALIGNMENT  4U
