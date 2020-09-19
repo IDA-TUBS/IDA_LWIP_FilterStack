@@ -138,7 +138,19 @@ static s32_t emac_intr_num;
  *********************************************************************************/
 
 #if defined __aarch64__
-u8_t bd_space[0x200000] __attribute__ ((aligned (0x200000)));
+/* One buffer descriptor consists of two words */
+#define BD_SIZE 	 (XEMACPS_BD_NUM_WORDS * 8)
+/* RX and TX descriptors + 2 dummy descriptors */
+#define BD_COUNT	 (XLWIP_CONFIG_N_TX_DESC + XLWIP_CONFIG_N_RX_DESC + 2)
+
+/* Reserve a larger region (e.g. 4, 8, 16k,...) for buffer descriptors */
+#ifndef BD_REGION_SIZE
+#define BD_REGION_SIZE	0x200000
+#endif
+#if BD_REGION_SIZE < (BD_COUNT * BD_SIZE)
+#error "Buffer descriptors will not fit in region. Increase BD_REGION_SIZE"
+#endif
+u8_t bd_space[BD_REGION_SIZE] __attribute__ ((aligned (BD_REGION_SIZE)));
 #elif defined (ARMR5)
 /* One buffer descriptor consists of two words */
 #define BD_SIZE 	 (XEMACPS_BD_NUM_WORDS * 4)
