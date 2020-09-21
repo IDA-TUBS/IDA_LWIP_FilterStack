@@ -18,6 +18,8 @@
 
 #include "ucos_int.h"
 
+#include "xil_mmu.h"
+
 /* Define those to better describe your network interface. */
 #define IFNAME0 'v'
 #define IFNAME1 'e'
@@ -203,6 +205,8 @@ static err_t low_level_init(struct netif *netif)
 	UINTPTR mac_address = (UINTPTR)(netif->state);
 	RX_PBUF_T* rx_pbuf;
 	IDA_LWIP_IPI_QUEUE_ENTRY entry;
+
+	Xil_SetTlbAttributes(IDA_LWIP_VIRT_ETH_MEM_BASE, NORM_NONCACHE);
 
 	XIpiPsu_Config *ipiConfig;
 	_ida_lwip_sharedMem = (SHARED_MEMORY_MGMT*)IDA_LWIP_MEM_MGMT_BASE;
