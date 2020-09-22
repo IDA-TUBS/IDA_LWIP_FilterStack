@@ -99,6 +99,11 @@
 //#include LWIP_HOOK_FILENAME
 //#endif
 
+/* Default VLAN is 10 */
+#ifndef ETHARP_VLAN
+#define ETHARP_VLAN	10
+#endif
+
 const struct eth_addr ethbroadcast = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
 const struct eth_addr ethzero = {{0, 0, 0, 0, 0, 0}};
 
@@ -131,6 +136,9 @@ ethernet_input(struct pbuf *p, struct netif *netif)
    */
   p->payload_orig = p->payload;
   p->tot_len_orig = p->tot_len;
+
+  /* Set the priority to zero by default */
+  p->ethPrio = 0;
 
   if (p->len <= SIZEOF_ETH_HDR) {
     /* a packet with only an ethernet header (or less) is not valid for us */
@@ -168,6 +176,11 @@ ethernet_input(struct pbuf *p, struct netif *netif)
 	  return ERR_OK;
     }
     type = vlan->tpid;
+    if (VLAN_ID(vlan) != ETHARP_VLAN){
+    	/* Discard Packet */
+    	pbuf_free(p);
+    	return ERR_OK;
+    }
     prio = VLAN_PRIO(vlan);
     p->ethPrio = prio;
   } else {
@@ -262,26 +275,20 @@ ethernet_output(struct netif * netif, struct pbuf * p,
   struct eth_hdr *ethhdr;
   u16_t eth_type_be = lwip_htons(eth_type);
 
-  s32_t vlan_prio_vid = p->ethPrio;
-  if (vlan_prio_vid >= 0) {
-    struct eth_vlan_hdr *vlanhdr;
+  s32_t vlan_prio_vid = (ETHARP_VLAN & 0xFFF) | ((p->ethPrio << 13) & 0xE000);
+	struct eth_vlan_hdr *vlanhdr;
 
-    LWIP_ASSERT("prio_vid must be <= 0xFFFF", vlan_prio_vid <= 0xFFFF);
+	LWIP_ASSERT("prio_vid must be <= 0xFFFF", vlan_prio_vid <= 0xFFFF);
 
-    if (pbuf_add_header(p, SIZEOF_ETH_HDR + SIZEOF_VLAN_HDR) != 0) {
-    	goto pbuf_header_failed;
-    }
-    vlanhdr = (struct eth_vlan_hdr *)(((u8_t *)p->payload) + SIZEOF_ETH_HDR);
-    vlanhdr->tpid     = eth_type_be;
-    vlanhdr->prio_vid = lwip_htons((u16_t)vlan_prio_vid);
+	if (pbuf_add_header(p, SIZEOF_ETH_HDR + SIZEOF_VLAN_HDR) != 0) {
+		goto pbuf_header_failed;
+	}
+	vlanhdr = (struct eth_vlan_hdr *)(((u8_t *)p->payload) + SIZEOF_ETH_HDR);
+	vlanhdr->tpid     = eth_type_be;
+	vlanhdr->prio_vid = lwip_htons((u16_t)vlan_prio_vid);
 
-    eth_type_be = PP_HTONS(ETHTYPE_VLAN);
-  } else
-  {
-    if (pbuf_add_header(p, SIZEOF_ETH_HDR) != 0) {
-      goto pbuf_header_failed;
-    }
-  }
+	eth_type_be = PP_HTONS(ETHTYPE_VLAN);
+
 
   LWIP_ASSERT_CORE_LOCKED();
 
