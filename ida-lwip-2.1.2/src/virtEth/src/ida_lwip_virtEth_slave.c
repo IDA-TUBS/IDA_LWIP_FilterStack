@@ -148,7 +148,9 @@ s32_t ida_lwip_virtEth_slave_input(struct netif *netif)
 			/* IP or ARP packet? */
 			case ETHTYPE_IP:
 			case ETHTYPE_ARP:
+#if ETHARP_SUPPORT_VLAN
 			case ETHTYPE_VLAN:
+#endif
 	#if LWIP_IPV6
 			/*IPv6 Packet?*/
 			case ETHTYPE_IPV6:
