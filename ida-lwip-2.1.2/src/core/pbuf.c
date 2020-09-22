@@ -869,6 +869,8 @@ pbuf_cat(struct pbuf *h, struct pbuf *t)
   p->tot_len = (u16_t)(p->tot_len + t->tot_len);
   /* chain last pbuf of head (p) with first of tail (t) */
   p->next = t;
+  /* hand over ethernet priority */
+  p->ethPrio = t->ethPrio;
   /* p->next now references t, but the caller will drop its reference to t,
    * so netto there is no change to the reference count of t.
    */
