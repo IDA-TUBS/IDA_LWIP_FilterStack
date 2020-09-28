@@ -72,24 +72,24 @@ typedef struct __attribute__((packed, aligned(8))){
 } IDA_LWIP_IPI_QUEUE_ENTRY;
 
 typedef struct __attribute__((packed, aligned(8))){
-	u32_t lock;
-	u8_t	head;
-	u8_t	tail;
-	u8_t	used;
-	u8_t	maxUsed;
-	IDA_LWIP_IPI_QUEUE_ENTRY	data[IDA_LWIP_MEM_QUEUE_SIZE];
+	volatile u32_t lock;
+	volatile u8_t	head;
+	volatile u8_t	tail;
+	volatile u8_t	used;
+	volatile u8_t	maxUsed;
+	volatile IDA_LWIP_IPI_QUEUE_ENTRY	 data[IDA_LWIP_MEM_QUEUE_SIZE];
 } IDA_LWIP_IPI_QUEUE;
 
 typedef struct __attribute__((packed)){
-	u32_t					ready[2];
+	u32_t					volatile ready[2];
 	IDA_LWIP_IPI_QUEUE		freeRxBuffers;
 	IDA_LWIP_IPI_QUEUE		freeTxBuffers;	/* free buffers that can be filled by classic stack */
 	IDA_LWIP_IPI_QUEUE		rxBuffers;		/* RX Packets to classic stack */
 	IDA_LWIP_IPI_QUEUE		txBuffers;		/* TX Packets from classic stack */
 } SHARED_MEMORY_MGMT;
 
-void spin_lock(u32_t *l);
-void spin_unlock(u32_t *l);
+void spin_lock(volatile u32_t *l);
+void spin_unlock(volatile u32_t *l);
 u8_t ida_lwip_virtEth_queuePut(IDA_LWIP_IPI_QUEUE *queue, IDA_LWIP_IPI_QUEUE_ENTRY *entry);
 u8_t ida_lwip_virtEth_queueGet(IDA_LWIP_IPI_QUEUE *queue, IDA_LWIP_IPI_QUEUE_ENTRY *entry);
 u8_t ida_lwip_virtEth_queueInit(IDA_LWIP_IPI_QUEUE *queue);

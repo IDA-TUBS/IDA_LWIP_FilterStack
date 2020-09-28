@@ -98,6 +98,8 @@ void ida_filter_init(struct netif *netif){
  * this must be called when the ethernet interface is ready
  */
 void ida_filter_init_classicAdapter(void){
+	ida_lwip_virtEth_master_init();
+
 	sys_thread_new("ida_lwip_classicAdapter", (void (*)(void*)) _ida_filter_classicAdapter, NULL, IDA_LWIP_CLASSIC_ADAPTER_STACK_SIZE,	OS_LOWEST_PRIO - 10);
 }
 
@@ -374,7 +376,6 @@ static void _ida_filter_classicAdapter(void* p_arg){
 		return;
 	}
 
-	ida_lwip_virtEth_master_init();
 
 	while(1){
 		u32_t res = sys_arch_sem_wait(&_ida_lwip_classicSem,1);

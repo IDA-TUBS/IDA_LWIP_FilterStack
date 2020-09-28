@@ -48,11 +48,11 @@
 
 #include "ida_lwip_virtEth.h"
 
-void spin_lock(u32_t *l) {
+void spin_lock(volatile u32_t *l) {
   while (__atomic_test_and_set(l, __ATOMIC_ACQUIRE));;
 }
 
-void spin_unlock(u32_t *l){
+void spin_unlock(volatile u32_t *l){
 	__atomic_clear(l, __ATOMIC_RELEASE);
 }
 

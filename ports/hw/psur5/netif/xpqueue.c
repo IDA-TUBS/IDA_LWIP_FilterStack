@@ -35,6 +35,8 @@
 #include "netif/xpqueue.h"
 #include "xil_printf.h"
 
+#ifndef IDA_LWIP
+
 #define NUM_QUEUES	2
 
 #if defined (ARMR5)
@@ -97,3 +99,5 @@ pq_qlength(pq_queue_t *q)
 {
 	return q->len;
 }
+
+#endif
