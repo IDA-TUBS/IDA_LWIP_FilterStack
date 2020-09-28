@@ -34,8 +34,8 @@ sys_sem_t rxSemaphore;
 
 static RX_PBUF_T rxPbufStorage[IDA_LWIP_MEM_QUEUE_SIZE];
 
-static u8_t *_ida_lwip_mem_from_classic;
-static u8_t *_ida_lwip_mem_to_classic;
+static volatile u8_t *_ida_lwip_mem_from_classic;
+static volatile u8_t *_ida_lwip_mem_to_classic;
 
 /*
  * low_level_output():

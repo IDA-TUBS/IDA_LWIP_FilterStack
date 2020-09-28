@@ -55,8 +55,8 @@ XIpiPsu IPIInstance;
 
 static SHARED_MEMORY_MGMT  *_ida_lwip_sharedMem;
 
-static u8_t *_ida_lwip_mem_from_classic;
-static u8_t *_ida_lwip_mem_to_classic;
+static volatile u8_t *_ida_lwip_mem_from_classic;
+static volatile u8_t *_ida_lwip_mem_to_classic;
 
 extern XIpiPsu_Config XIpiPsu_ConfigTable[];
 
