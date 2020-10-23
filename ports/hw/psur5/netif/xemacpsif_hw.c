@@ -82,7 +82,7 @@ void init_emacps(xemacpsif_s *xemacps, struct netif *netif)
 	XEmacPs_SetOptions(xemacpsp, XEMACPS_MULTICAST_OPTION);
 #endif
 
-#if defined(IDA_LWIP)
+#if defined(IDA_LWIP) || defined(PTP_LAYER_2)
 	XEmacPs_SetOptions(xemacpsp, XEMACPS_PROMISC_OPTION);
 #endif
 

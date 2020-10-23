@@ -358,9 +358,16 @@ typedef u32 XEmacPs_Bd[XEMACPS_BD_NUM_WORDS];
  *    UINTPTR XEmacPs_BdGetTsNSeconds(XEmacPs_Bd* BdPtr)
  *
  *****************************************************************************/
+
+#ifdef __aarch64__
+#define XEmacPs_BdGetTsNSeconds(BdPtr)                   \
+    (XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD4_OFFSET) &            \
+    		XEMACPS_RXBUF_WORD2_NS_MASK)
+#else
 #define XEmacPs_BdGetTsNSeconds(BdPtr)                   \
     (XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD2_OFFSET) &            \
     		XEMACPS_RXBUF_WORD2_NS_MASK)
+#endif
 
 /*****************************************************************************/
 /**
@@ -378,10 +385,16 @@ typedef u32 XEmacPs_Bd[XEMACPS_BD_NUM_WORDS];
  *    UINTPTR XEmacPs_BdGetTsSeconds(XEmacPs_Bd* BdPtr)
  *
  *****************************************************************************/
+
+#ifdef __aarch64__
+#define XEmacPs_BdGetTsSeconds(BdPtr)                   \
+	(((XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD4_OFFSET) & XEMACPS_RXBUF_WORD2_S_MASK) >> XEMACPS_RXBUF_WORD2_S_OFFSET) | \
+		((XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD5_OFFSET) & XEMACPS_RXBUF_WORD3_S_MASK) << XEMACPS_RXBUF_WORD3_S_OFFSET))
+#else
 #define XEmacPs_BdGetTsSeconds(BdPtr)                   \
     (((XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD2_OFFSET) & XEMACPS_RXBUF_WORD2_S_MASK) >> XEMACPS_RXBUF_WORD2_S_OFFSET) | \
     		((XEmacPs_BdRead((BdPtr), XEMACPS_BD_TS_WORD3_OFFSET) & XEMACPS_RXBUF_WORD3_S_MASK) << XEMACPS_RXBUF_WORD3_S_OFFSET))
-
+#endif
 
 /*****************************************************************************/
 /**

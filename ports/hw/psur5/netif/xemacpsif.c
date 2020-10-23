@@ -161,10 +161,10 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
 
 	/* check if space is available to send */
     freecnt = is_tx_space_available(xemacpsif);
-    if (freecnt <= 5) {
-	txring = &(XEmacPs_GetTxRing(&xemacpsif->emacps));
-		process_sent_bds(xemacpsif, txring);
-	}
+//    if (freecnt <= 5) {
+//	txring = &(XEmacPs_GetTxRing(&xemacpsif->emacps));
+//		process_sent_bds(xemacpsif, txring);
+//	}
 
     if (is_tx_space_available(xemacpsif)) {
 		_unbuffered_low_level_output(xemacpsif, p);
@@ -275,6 +275,9 @@ s32_t xemacpsif_input(struct netif *netif)
 			case ETHTYPE_PPPOEDISC:
 			case ETHTYPE_PPPOE:
 	#endif /* PPPOE_SUPPORT */
+#if defined(PTP_LAYER_2)
+			case ETHTYPE_PTP:
+#endif
 				/* full packet send to tcpip_thread to process */
 				if (netif->input(p, netif) != ERR_OK) {
 					LWIP_DEBUGF(NETIF_DEBUG, ("xemacpsif_input: IP input error\r\n"));

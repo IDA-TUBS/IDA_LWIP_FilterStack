@@ -559,6 +559,8 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
 #define XEMACPS_BD_ADDR_HI_OFFSET  0x00000008U /**< word 2/addr of BDs */
 #define XEMACPS_BD_TS_WORD2_OFFSET  0x00000008U /**< word 2/addr of BDs */
 #define XEMACPS_BD_TS_WORD3_OFFSET  0x0000000CU /**< word 3/addr of BDs */
+#define XEMACPS_BD_TS_WORD4_OFFSET	0x00000010U
+#define XEMACPS_BD_TS_WORD5_OFFSET	0x00000014U
 /*
  * @}
  */

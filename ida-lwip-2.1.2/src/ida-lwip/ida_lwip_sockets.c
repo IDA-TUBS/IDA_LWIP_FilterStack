@@ -341,6 +341,8 @@ static sys_mbox_t socket_mgm_queue;
 
 #define MONITOR_TRIGGER	5
 
+__attribute__((weak)) void ida_lwip_socket_sendto_hook(void *data, size_t size) { (void) data; return; }
+
 /**
  * INTERNAL_SOCKET_HANDLING
  * Internal socket handling by supervisor task(*((*(socket_mgm_queue)).osmbox)).OSEventType

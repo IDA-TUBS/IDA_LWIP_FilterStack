@@ -184,6 +184,9 @@ long xInsideISR = 0;
 /* mask for RX PTP event frames */
 #define XEMACPS_BD_RX_PTP_EVENT_MASK	0x4U
 
+__attribute__((weak)) void emacps_rx_hook(struct pbuf* p) { (void) p; return; }
+__attribute__((weak)) void emacps_tx_hook(struct pbuf* p) { (void) p; return; }
+__attribute__((weak)) void emacps_tx_complete_hook(struct pbuf* p) { (void) p; return; }
 
 s32_t is_tx_space_available(xemacpsif_s *emac)
 {
@@ -295,6 +298,9 @@ void process_sent_bds(xemacpsif_s *xemacpsif, XEmacPs_BdRing *txring)
 			}
 			dsb();
 			p = (struct pbuf *)tx_pbufs_storage[index + bdindex];
+
+			emacps_tx_complete_hook(p);
+
 			if (p != NULL) {
 				pbuf_free(p);
 			}
@@ -374,6 +380,8 @@ XStatus emacps_sgsend(xemacpsif_s *xemacpsif, struct pbuf *p)
 		LWIP_DEBUGF(NETIF_DEBUG, ("sgsend: Error allocating TxBD\r\n"));
 		return XST_FAILURE;
 	}
+
+	emacps_tx_hook(p);
 
 	for(q = p, txbd = txbdset; q != NULL; q = q->next) {
 		bdindex = XEMACPS_BD_TO_INDEX(txring, txbd);
@@ -591,11 +599,24 @@ void emacps_recv_handler(void *arg)
 #endif
 			pbuf_realloc(p, rx_bytes);
 
+			/* Invalidate RX frame before queuing to handle
+			 * L1 cache prefetch conditions on any architecture.
+			 */
+			if (xemacpsif->emacps.Config.IsCacheCoherent == 0) {
+				Xil_DCacheInvalidateRange((UINTPTR)p->payload, rx_bytes);
+			}
+
+			emacps_rx_hook(p);
+
 #if XPAR_EMACPS_TSU_BD_TIMESTAMPS == 1
 			u32* temp = (u32*)curbdptr;
 			if(*temp & XEMACPS_BD_RX_PTP_EVENT_MASK) {
 				ETH_PTP_SaveBdTimestamp(curbdptr, TRUE);
 #if LWIP_PBUF_TIMESTAMP == 1
+				 struct ptptime_t tim;
+				ETH_PTPTime_GetTime(&tim);
+//				p->ts_sec = tim.tv_sec;
+//				p->ts_nsec = tim.tv_nsec;
 				ETH_PTP_GetBdTimestamp(&p->ts_sec, &p->ts_nsec, curbdptr);
 #endif
 			}
@@ -669,23 +690,23 @@ XStatus init_dma(struct xemac_s *xemac)
 	XEmacPs_Bd *bdrxterminate;
 	u32 *temp;
 
-	/*
-	 * Disable L1 prefetch if the processor type is Cortex A53. It is
-	 * observed that the L1 prefetching for ARMv8 can cause issues while
-	 * dealing with cache memory on Rx path. On Rx path, the lwIP adapter
-	 * does a clean and invalidation of buffers (pbuf payload) before
-	 * allocating them to Rx BDs. However, there are chances that the
-	 * the same cache line may get prefetched by the time Rx data is
-	 * DMAed to the same buffer. In such cases, CPU fetches stale data from
-	 * cache memory instead of getting them from memory. To avoid such
-	 * scenarios L1 prefetch is being disabled for ARMv8. That can cause
-	 * a performance degaradation in the range of 3-5%. In tests, it is
-	 * generally observed that this performance degaradation is quite
-	 * insignificant to be really visible.
-	 */
-#if defined __aarch64__
-	Xil_ConfigureL1Prefetch(0);
-#endif
+//	/*
+//	 * Disable L1 prefetch if the processor type is Cortex A53. It is
+//	 * observed that the L1 prefetching for ARMv8 can cause issues while
+//	 * dealing with cache memory on Rx path. On Rx path, the lwIP adapter
+//	 * does a clean and invalidation of buffers (pbuf payload) before
+//	 * allocating them to Rx BDs. However, there are chances that the
+//	 * the same cache line may get prefetched by the time Rx data is
+//	 * DMAed to the same buffer. In such cases, CPU fetches stale data from
+//	 * cache memory instead of getting them from memory. To avoid such
+//	 * scenarios L1 prefetch is being disabled for ARMv8. That can cause
+//	 * a performance degaradation in the range of 3-5%. In tests, it is
+//	 * generally observed that this performance degaradation is quite
+//	 * insignificant to be really visible.
+//	 */
+//#if defined __aarch64__
+//	Xil_ConfigureL1Prefetch(0);
+//#endif
 
 	xemacpsif_s *xemacpsif = (xemacpsif_s *)(xemac->state);
 	struct xtopology_t *xtopologyp = &xtopology[xemac->topology_index];

@@ -64,7 +64,7 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
 #if LINK_STATS
 		lwip_stats.link.xmit++;
 #endif
-	void* data = (void*)(IDA_LWIP_MEM_FROM_CLASSIC_BASE + entry.ref * IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE);
+	void* data = (void*)((uint64_t)(IDA_LWIP_MEM_FROM_CLASSIC_BASE + entry.ref * IDA_LWIP_MEM_FROM_CLASSIC_ENTRY_SIZE));
 	pbuf_copy_partial(p,data,p->tot_len,0);
 	entry.size = p->tot_len;
 	entry.type = IDA_LWIP_MEM_MSG_TYPE_DATA;
@@ -120,7 +120,7 @@ s32_t ida_lwip_virtEth_slave_input(struct netif *netif)
 
 	if(entry.type == IDA_LWIP_MEM_MSG_TYPE_MGMT){
 		/* handle message and return */
-		void *data = (void*)(IDA_LWIP_MEM_TO_CLASSIC_BASE + entry.ref * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE);
+		void *data = (void*)((uint64_t)(IDA_LWIP_MEM_TO_CLASSIC_BASE + entry.ref * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE));
 		ida_lwip_virtEth_slave_handleMgmt((u32_t*)data, entry.size);
 		ida_lwip_virtEth_queuePut(&_ida_lwip_sharedMem->freeRxBuffers,&entry);
 		SYS_ARCH_UNPROTECT(lev);
@@ -222,7 +222,7 @@ static err_t low_level_init(struct netif *netif)
 //	memset((void*)_ida_lwip_mem_to_classic,0,IDA_LWIP_MEM_TO_CLASSIC_SIZE);
 
 	for(int i = 0; i < IDA_LWIP_MEM_QUEUE_SIZE; i++){
-		void *data = (void*)(IDA_LWIP_MEM_TO_CLASSIC_BASE + i * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE);
+		void *data = (void*)((uint64_t)(IDA_LWIP_MEM_TO_CLASSIC_BASE + i * IDA_LWIP_MEM_TO_CLASSIC_ENTRY_SIZE));
 		rx_pbuf = &rxPbufStorage[i];
 		rx_pbuf->p.custom_free_function = _ida_rx_pbuf_free;
 		rx_pbuf->data = data;

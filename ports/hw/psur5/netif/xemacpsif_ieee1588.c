@@ -39,6 +39,8 @@
  ************************************************************************************************
  */
 
+__attribute__((weak)) void ETH_PTP_SET_INCR_HOOK(uint32_t ns, uint32_t sub_ns) {(void)ns; (void)sub_ns; return; }
+
 /*
  * Initial TSU Increment
  */
@@ -252,7 +254,7 @@ void ETH_PTPTime_AdjOffset(int32_t Adj) {
 void XEmacPs_WriteTsuIncr(u32 ns, u32 subns)
 {
 	u32 sub_ns_reg;
-
+	ETH_PTP_SET_INCR_HOOK(ns, subns);
 	/*
 	 * subnanoseconds are divided into msb and lsb.
 	 * lsb [31:24], msb [15:0]
