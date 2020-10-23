@@ -66,7 +66,10 @@ extern err_t low_level_output(struct netif *netif, struct pbuf *p);
 
 LWIP_MEMPOOL_DECLARE(TX_PBUF_POOL, 20, sizeof(IDA_LWIP_FILTER_PBUF), "tx Pbuf_Pool");
 
-
+__attribute__((weak)) void ida_filter_thread_input_hook(struct pbuf* p) { (void) p; return; }
+__attribute__((weak)) void ida_filter_thread_notforus_hook(struct pbuf* p) { (void) p; return; }
+__attribute__((weak)) void ida_filter_tx_thread_input_hook(IDA_LWIP_TX_REQ *txReq) { (void) txReq; return; }
+__attribute__((weak)) void ida_filter_tx_thread_done_hook(IDA_LWIP_TX_REQ *txReq) { (void) txReq; return; }
 /*
  * initialization of the 8 mboxes
  * */
@@ -131,8 +134,10 @@ static void _ida_filter_thread(void* p_arg){
 
 	while(1){
 		p = (struct pbuf*)ida_lwip_prioQueuePend(_ida_lwip_inputQueue,0);
+		ida_filter_thread_input_hook(p);
 		err = ip4_input(p, netif_local);
 		if(err == ERR_NOTUS){
+			ida_filter_thread_notforus_hook(p);
 			ida_filter_sendToClassic(p);
 		}
 	}
@@ -309,6 +314,7 @@ static void _ida_filter_tx_thread(void* p_arg){
 
 	while(1){
 		txReq = (IDA_LWIP_TX_REQ*)ida_lwip_prioQueuePend(_ida_lwip_outputQueue,0);
+		ida_filter_tx_thread_input_hook(txReq);
 		if(txReq != NULL){
 			if(txReq->type == UDP){
 				_ida_filter_process_udp(txReq);
@@ -329,6 +335,7 @@ static void _ida_filter_tx_thread(void* p_arg){
 				//todo: ??
 			}
 		}
+		ida_filter_tx_thread_done_hook(txReq);
 	}
 }
 

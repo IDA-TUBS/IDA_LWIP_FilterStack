@@ -49,6 +49,10 @@
 #include "lwip/ip.h"
 #include "lwip/snmp.h"
 
+#if defined(PTP_LAYER_2)
+extern int ptp_input(struct pbuf *p);
+#endif
+
 #include <string.h>
 
 #include "netif/ppp/ppp_opts.h"
@@ -230,6 +234,24 @@ ethernet_input(struct pbuf *p, struct netif *netif)
       }
       break;
 #endif /* LWIP_IPV6 */
+#if LWIP_PTP == 1 && defined(PTP_LAYER_2)
+    case PP_HTONS(ETHTYPE_PTP):
+    		/* skip Ethernet header (min. size checked above) */
+    		if (pbuf_remove_header(p, next_hdr_offset)) {
+    			LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
+    					("ethernet_input: PTP packet dropped, too short (%"U16_F"/%"U16_F")\n",
+    					 p->tot_len, next_hdr_offset));
+    			LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("Can't move over header in packet"));
+    			pbuf_free(p);
+    			return ERR_OK;
+    		} else {
+    			if(ptp_input(p) == -1){
+    				pbuf_free(p);
+    			}
+    			return ERR_OK;
+    		}
+        	break;
+#endif
 
     default:
 #ifdef LWIP_HOOK_UNKNOWN_ETH_PROTOCOL

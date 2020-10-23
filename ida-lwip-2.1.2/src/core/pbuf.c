@@ -86,6 +86,8 @@
 
 #include <string.h>
 
+__attribute__((weak)) void pbuf_free_hook(struct pbuf* p) { (void) p; return; }
+
 #define SIZEOF_STRUCT_PBUF        LWIP_MEM_ALIGN_SIZE(sizeof(struct pbuf))
 /* Since the pool is created in memp, PBUF_POOL_BUFSIZE will be automatically
    aligned there. Therefore, PBUF_POOL_BUFSIZE_ALIGNED can be used here. */
@@ -757,6 +759,7 @@ pbuf_free(struct pbuf *p)
     /* this pbuf is no longer referenced to? */
     if (ref == 0) {
       /* remember next pbuf in chain for next iteration */
+      pbuf_free_hook(p);
       q = p->next;
       LWIP_DEBUGF( PBUF_DEBUG | LWIP_DBG_TRACE, ("pbuf_free: deallocating %p\n", (void *)p));
       alloc_src = pbuf_get_allocsrc(p);
