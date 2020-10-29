@@ -550,6 +550,7 @@ ssize_t ida_lwip_recvfrom(int s, void *mem, size_t len, int flags,
 ssize_t ida_lwip_send(int s, const void *dataptr, size_t size, int flags);
 ssize_t ida_lwip_sendto(int s, const void *dataptr, size_t size, int flags,
     const struct sockaddr *to, socklen_t tolen);
+ssize_t ida_lwip_sendmsg(int s, const struct msghdr *message, int flags);
 int ida_lwip_socket(int domain, int type, int protocol);
 ssize_t lwip_write(int s, const void *dataptr, size_t size);
 #if LWIP_SOCKET_SELECT

@@ -1113,6 +1113,7 @@ ssize_t
 ida_lwip_sendto(int s, const void *data, size_t size, int flags,
             const struct sockaddr *to, socklen_t tolen)
 {
+	ida_lwip_socket_sendto_hook(data, size);
 	if(_IDA_LWIP_IS_SOCKET(s)){
 		/* Socket is normal socket */
 		struct ida_lwip_sock *sock;
@@ -1167,6 +1168,7 @@ ssize_t
 ida_lwip_sendmsg(int s, const struct msghdr *message, int flags)
 //(int s, struct iovec *iov, size_t vector_len, int flags,const struct sockaddr *to, socklen_t tolen)
 {
+	ida_lwip_socket_sendto_hook(message->msg_iov, message->msg_iovlen);
 	if(_IDA_LWIP_IS_SOCKET(s)){
 		/* Socket is normal socket */
 		struct ida_lwip_sock *sock;
