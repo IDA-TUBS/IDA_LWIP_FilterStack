@@ -92,8 +92,8 @@ void ida_filter_init(struct netif *netif){
 	_ida_lwip_inputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
 	_ida_lwip_outputQueue = ida_lwip_prioQueueCreate(IDA_LWIP_MBOX_SIZE);
 
-	sys_thread_new("ida_lwip_rx_filter",(void (*)(void*)) _ida_filter_thread, NULL, IDA_LWIP_RX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 1);
-	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_TX_FILTER_STACK_SIZE,	TCPIP_THREAD_PRIO - 2);
+	sys_thread_new("ida_lwip_rx_filter",(void (*)(void*)) _ida_filter_thread, NULL, IDA_LWIP_RX_FILTER_STACK_SIZE,	IDA_LWIP_RX_FILTER_PRIO);
+	sys_thread_new("ida_lwip_tx_filter",(void (*)(void*)) _ida_filter_tx_thread, NULL, IDA_LWIP_TX_FILTER_STACK_SIZE,	IDA_LWIP_TX_FILTER_PRIO);
 }
 
 /*
