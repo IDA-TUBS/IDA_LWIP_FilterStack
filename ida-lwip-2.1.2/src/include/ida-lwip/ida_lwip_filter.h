@@ -59,6 +59,17 @@
 #define IDA_LWIP_CLASSIC_QUEUE_TRIGGER		8
 #endif
 
+#ifndef IDA_LWIP_RX_FILTER_PRIO
+#define IDA_LWIP_RX_FILTER_PRIO		10
+#endif
+
+#ifndef IDA_LWIP_TX_FILTER_PRIO
+#define IDA_LWIP_TX_FILTER_PRIO		(IDA_LWIP_RX_FILTER_PRIO - 1)
+#endif
+
+
+
+
 typedef struct IDA_LWIP_FILTER_PBUF
 {
    struct pbuf_custom p;
